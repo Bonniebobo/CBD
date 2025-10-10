@@ -79,6 +79,11 @@
           "type": "boolean",
           "default": true,
           "description": "Enable repository analysis features"
+        },
+        "ai-chatbot.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:3001",
+          "description": "Backend API URL for AI processing"
         }
       }
     }

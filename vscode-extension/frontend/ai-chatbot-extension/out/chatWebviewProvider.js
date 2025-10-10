@@ -2,7 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatWebviewProvider = void 0;
 const vscode = require("vscode");
+const path = require("path");
 const fs = require("fs");
+const https = require("https");
+const http = require("http");
+const url_1 = require("url");
 /**
  * Configuration constants for the AI Chatbot webview
  */
@@ -190,15 +194,31 @@ class ChatWebviewProvider {
         if (!this._panel) {
             return;
         }
-        // Get workspace context
-        const workspaceFiles = await this._getWorkspaceFiles();
-        const currentFile = this._getCurrentFile();
-        // Generate AI response
-        const response = await this._generateAIResponse(text, workspaceFiles, currentFile);
-        this._sendMessageToWebview({
-            type: MESSAGE_TYPES.AI_RESPONSE,
-            response: response
-        });
+        try {
+            // Show loading state
+            this._sendMessageToWebview({
+                type: MESSAGE_TYPES.AI_RESPONSE,
+                response: "🤖 Analyzing your codebase... Please wait."
+            });
+            // Get workspace context with file contents
+            const workspaceFiles = await this._getWorkspaceFilesWithContent();
+            const currentFile = this._getCurrentFile();
+            // Call backend API
+            const response = await this._callBackendAPI(text, workspaceFiles, currentFile);
+            this._sendMessageToWebview({
+                type: MESSAGE_TYPES.AI_RESPONSE,
+                response: response
+            });
+        }
+        catch (error) {
+            console.error('[AI Chatbot] Error handling user message:', error);
+            // Fallback to mock response on error
+            const fallbackResponse = await this._generateAIResponse(text, [], undefined);
+            this._sendMessageToWebview({
+                type: MESSAGE_TYPES.AI_RESPONSE,
+                response: `⚠️ Backend unavailable. Using offline mode:\n\n${fallbackResponse}`
+            });
+        }
     }
     /**
      * Generates AI responses based on user input
@@ -420,6 +440,134 @@ How can I assist you further?`;
             }
         }
         return files.slice(0, 100); // Limit to first 100 files
+    }
+    /**
+     * Gets workspace files with their content for backend API
+     * @returns Array of workspace files with content
+     */
+    async _getWorkspaceFilesWithContent() {
+        const files = [];
+        if (vscode.workspace.workspaceFolders) {
+            for (const folder of vscode.workspace.workspaceFolders) {
+                const pattern = new vscode.RelativePattern(folder, '**/*');
+                const fileUris = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
+                // Limit to first 50 files to avoid large payloads
+                const limitedUris = fileUris.slice(0, 50);
+                for (const uri of limitedUris) {
+                    try {
+                        const relativePath = vscode.workspace.asRelativePath(uri);
+                        const fileContent = await vscode.workspace.fs.readFile(uri);
+                        const content = Buffer.from(fileContent).toString('utf8');
+                        // Skip binary files and very large files
+                        if (this._isTextFile(relativePath) && content.length < 50000) {
+                            files.push({
+                                filename: relativePath,
+                                content: content
+                            });
+                        }
+                    }
+                    catch (error) {
+                        console.warn(`[AI Chatbot] Failed to read file ${uri.fsPath}:`, error);
+                    }
+                }
+            }
+        }
+        return files;
+    }
+    /**
+     * Checks if a file is a text file based on extension
+     * @param filename The filename to check
+     * @returns true if the file is likely a text file
+     */
+    _isTextFile(filename) {
+        const textExtensions = [
+            '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.txt', '.css', '.scss', '.html', '.xml', '.yaml', '.yml',
+            '.py', '.java', '.cpp', '.c', '.h', '.hpp', '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala',
+            '.vue', '.svelte', '.astro', '.config', '.env', '.gitignore', '.dockerfile', '.dockerignore'
+        ];
+        const ext = path.extname(filename).toLowerCase();
+        return textExtensions.includes(ext) || !ext; // Include files without extensions
+    }
+    /**
+     * Calls the backend API with files and prompt
+     * @param prompt The user's prompt
+     * @param files Array of files with content
+     * @param currentFile Currently open file
+     * @returns AI response from backend
+     */
+    async _callBackendAPI(prompt, files, currentFile) {
+        const backendUrl = vscode.workspace.getConfiguration('ai-chatbot').get('backendUrl', 'http://localhost:3001');
+        const uploadUrl = `${backendUrl}/upload`;
+        console.log(`[AI Chatbot] Calling backend API: ${uploadUrl}`);
+        console.log(`[AI Chatbot] Sending ${files.length} files with prompt: "${prompt}"`);
+        return new Promise((resolve, reject) => {
+            try {
+                const url = new url_1.URL(uploadUrl);
+                const postData = JSON.stringify({
+                    files: files,
+                    prompt: prompt
+                });
+                const options = {
+                    hostname: url.hostname,
+                    port: url.port || (url.protocol === 'https:' ? 443 : 80),
+                    path: url.pathname,
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(postData)
+                    }
+                };
+                const client = url.protocol === 'https:' ? https : http;
+                const req = client.request(options, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => {
+                        data += chunk;
+                    });
+                    res.on('end', () => {
+                        try {
+                            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                                const responseData = JSON.parse(data);
+                                console.log(`[AI Chatbot] Backend response received:`, responseData.message);
+                                // Extract the mock response from the backend
+                                if (responseData.mockResponse) {
+                                    let response = responseData.mockResponse;
+                                    // Add directory tree information if available
+                                    if (responseData.directoryTree) {
+                                        console.log(`[AI Chatbot] Directory tree received with ${Object.keys(responseData.directoryTree).length} root items`);
+                                        // The directory tree is already included in the mockResponse, but we can add metadata
+                                        response += `\n\n📊 **Project Overview:**\n`;
+                                        response += `• Total files processed: ${responseData.metadata?.filesProcessed || 0}\n`;
+                                        response += `• Total characters: ${responseData.metadata?.totalCharacters || 0}\n`;
+                                        response += `• Analysis timestamp: ${responseData.metadata?.timestamp || 'unknown'}\n`;
+                                    }
+                                    resolve(response);
+                                }
+                                else {
+                                    resolve(responseData.message || 'Backend response received but no content available.');
+                                }
+                            }
+                            else {
+                                reject(new Error(`Backend API error: ${res.statusCode} ${res.statusMessage}`));
+                            }
+                        }
+                        catch (parseError) {
+                            console.error('[AI Chatbot] Failed to parse backend response:', parseError);
+                            reject(new Error('Invalid response from backend'));
+                        }
+                    });
+                });
+                req.on('error', (error) => {
+                    console.error('[AI Chatbot] Backend API call failed:', error);
+                    reject(error);
+                });
+                req.write(postData);
+                req.end();
+            }
+            catch (error) {
+                console.error('[AI Chatbot] Backend API call failed:', error);
+                reject(error);
+            }
+        });
     }
     /**
      * Gets the currently open file
