@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node test-backend.js",
-    "test:gemini": "node test-gemini.js"
+    "test": "node tests/test-citation.js",
+    "test:integration": "node tests/test-backend.js",
+    "test:gemini": "node tests/test-gemini.js"
   },
   "keywords": [
     "ai",
