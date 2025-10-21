@@ -38,7 +38,7 @@ A Node.js + Express backend API for the AI Code Assistant VS Code Extension. Thi
 3. (Optional) Set up Gemini API key:
    ```bash
    # Copy the example environment file
-   cp env.example .env
+   cp .env.example .env
    
    # Edit .env and add your Gemini API key
    # Get your free API key from: https://makersuite.google.com/app/apikey
