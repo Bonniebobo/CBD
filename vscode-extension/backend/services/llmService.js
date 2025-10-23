@@ -87,7 +87,6 @@ Current file being edited: ${currentFile || 'None specified'}`;
 
         // Create user prompt
         const userPrompt = `User question: ${prompt}
-o'o'o'o'o'o'o'o'o'o'p
 Please analyze the provided codebase and respond to the user's question. Include relevant file references and code examples where appropriate.`;
 
         try {
