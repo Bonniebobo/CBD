@@ -8,7 +8,6 @@ A Node.js + Express backend API for the AI Code Assistant VS Code Extension. Thi
 - **Directory Tree Generation**: Creates hierarchical tree structure with file previews
 - **File Previews**: Shows first 3 lines of code for each file
 - **Gemini LLM Integration**: Real AI responses using Google's Gemini API
-- **Mock Response Fallback**: Intelligent mock responses when LLM is unavailable
 - **CORS Support**: Configured for VS Code extension communication
 - **Request Logging**: Detailed console logging for debugging
 - **Large File Support**: Handles up to 10MB uploads
@@ -21,7 +20,7 @@ A Node.js + Express backend API for the AI Code Assistant VS Code Extension. Thi
 
 - Node.js 16.0.0 or higher
 - npm or yarn
-- (Optional) Gemini API key for real AI responses
+- Gemini API key for real AI responses
 
 ### Installation
 
@@ -35,7 +34,7 @@ A Node.js + Express backend API for the AI Code Assistant VS Code Extension. Thi
    npm install
    ```
 
-3. (Optional) Set up Gemini API key:
+3. Set up Gemini API key:
    ```bash
    # Copy the example environment file
    cp .env.example .env
@@ -101,8 +100,8 @@ Accepts project files and user prompts for AI processing.
 **Response:**
 ```json
 {
-  "message": "Successfully received 2 files. Prompt was: 'Summarize this repository'",
-  "mockResponse": "LLM would say: 'Based on your 2 files, this appears to be a React-based application...'",
+  "message": "Successfully processed 2 files.",
+  "aiResponse": "Real Gemini AI response here...",
   "directoryTree": {
     "src": {
       "type": "directory",
@@ -208,23 +207,12 @@ The backend generates a hierarchical directory tree for all uploaded files:
 }
 ```
 
-## Mock LLM Response Types
-
-The backend generates intelligent mock responses based on:
-
-- **Repository Summary**: When prompt contains "summary", "repository", or "repo" (includes directory tree)
-- **Code Explanation**: When prompt contains "explain", "what", or "how"
-- **Code Generation**: When prompt contains "generate", "create", or "new"
-- **Debugging Help**: When prompt contains "debug", "error", or "fix"
-- **Refactoring**: When prompt contains "refactor", "improve", or "optimize"
-- **General Response**: For other prompts
-
 ## Configuration
 
 ### Environment Variables
 
 - `PORT`: Server port (default: 3001)
-- `GEMINI_API_KEY`: Google Gemini API key for real AI responses (optional)
+- `GEMINI_API_KEY`: Google Gemini API key for real AI responses (required)
 - `NODE_ENV`: Environment mode (development/production)
 
 ### CORS Settings
@@ -370,8 +358,7 @@ The backend now includes real Gemini LLM integration! Here's how it works:
 ### How It Works
 
 - **With API Key**: Uses real Gemini AI responses
-- **Without API Key**: Falls back to intelligent mock responses
-- **Automatic Fallback**: If Gemini fails, uses mock responses
+- **Without API Key**: Requests are rejected until the key is configured
 - **Status Monitoring**: Check `/health` endpoint for LLM status
 
 ### Response Format
@@ -380,8 +367,8 @@ The response includes LLM status information:
 
 ```json
 {
-  "message": "Successfully received 2 files. Prompt was: 'Summarize this repository'",
-  "mockResponse": "Real Gemini AI response here...",
+  "message": "Successfully processed 2 files.",
+  "aiResponse": "Real Gemini AI response here...",
   "directoryTree": { ... },
   "llmStatus": {
     "geminiAvailable": true,

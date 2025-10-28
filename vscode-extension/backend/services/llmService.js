@@ -3,8 +3,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 /**
  * LLM Service for AI Code Assistant Backend
  * 
- * Handles communication with various LLM providers including Gemini.
- * Falls back to mock responses when API keys are not available.
+ * Handles communication with the Gemini model.
+ * Requires a valid API key and surfaces errors when the service is unavailable.
  */
 
 class LLMService {
@@ -23,7 +23,7 @@ class LLMService {
                 this.geminiApiKey = null;
             }
         } else {
-            console.log('⚠️  No Gemini API key found. Using mock responses.');
+            console.log('⚠️  No Gemini API key found. Gemini responses are disabled until the key is provided.');
         }
     }
 
@@ -35,18 +35,17 @@ class LLMService {
      * @returns {Promise<string>} AI response
      */
     async generateResponse(prompt, files, currentFile = null) {
-        // Try Gemini first if available
-        if (this.geminiModel) {
-            try {
-                return await this.generateGeminiResponse(prompt, files, currentFile);
-            } catch (error) {
-                console.error('Gemini API error:', error.message);
-                console.log('Falling back to mock response...');
-            }
+        if (!this.geminiModel) {
+            throw new Error('Gemini model not initialized. Set GEMINI_API_KEY to enable AI responses.');
         }
 
-        // Fallback to mock response
-        return this.generateMockResponse(prompt, files, currentFile);
+        try {
+            return await this.generateGeminiResponse(prompt, files, currentFile);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error('Gemini API error:', message);
+            throw new Error(`Gemini API error: ${message}`);
+        }
     }
 
     /**
@@ -109,25 +108,6 @@ Please analyze the provided codebase and respond to the user's question. Include
             console.error('Gemini API call failed:', error);
             throw error;
         }
-    }
-
-    /**
-     * Generate mock response (fallback)
-     * @param {string} prompt - User's prompt
-     * @param {Array} files - Array of files with content
-     * @param {string} currentFile - Currently open file (optional)
-     * @returns {string} Mock response
-     */
-    generateMockResponse(prompt, files, currentFile = null) {
-        const promptText = typeof prompt === 'string' ? prompt : '';
-
-        // Analyze file types
-        const fileTypes = files.map(f => f.filename?.split('.').pop() || 'unknown');
-        const hasReact = fileTypes.includes('tsx') || fileTypes.includes('jsx');
-        const hasTypeScript = fileTypes.includes('ts') || fileTypes.includes('tsx');
-
-        // Default to the general response for all prompts
-        return this.generateGeneralResponse(files, promptText, hasReact, hasTypeScript);
     }
 
     /**
@@ -224,53 +204,6 @@ ${preview}${lines.length > 10 ? '\n...' : ''}
         return result;
     }
 
-    /**
-     * Generate general response
-     */
-    generateGeneralResponse(files, prompt, hasReact, hasTypeScript) {
-        const fileCount = files.length;
-        const keyFileSummaries = this.buildKeyFileReferenceList(files);
-        let response = `I understand you're asking about "${prompt}". Based on your ${fileCount} files, I can help you with:\n\n`;
-
-        response += `**Code Analysis:**\n`;
-        response += `• Explain how your code works\n`;
-        response += `• Identify patterns and structures\n`;
-        response += `• Suggest improvements and optimizations\n\n`;
-
-        response += `**Development Assistance:**\n`;
-        response += `• Generate new code and components\n`;
-        response += `• Debug issues and errors\n`;
-        response += `• Refactor existing code\n`;
-        response += `• Add new features\n\n`;
-
-        if (hasReact) {
-            response += `**React-Specific Help:**\n`;
-            response += `• Component architecture and design\n`;
-            response += `• State management patterns\n`;
-            response += `• Performance optimization\n`;
-            response += `• Best practices and conventions\n\n`;
-        }
-
-        if (hasTypeScript) {
-            response += `**TypeScript Support:**\n`;
-            response += `• Type definitions and interfaces\n`;
-            response += `• Type safety improvements\n`;
-            response += `• Advanced TypeScript features\n\n`;
-        }
-
-        if (keyFileSummaries.length > 0) {
-            response += `**Key Files with line references:**\n${keyFileSummaries.join('\n')}\n\n`;
-        }
-
-        response += `How can I assist you further with your codebase?`;
-
-        return `LLM would say: "${response}"`;
-    }
-
-    /**
-     * Check if Gemini is available
-     * @returns {boolean} True if Gemini is available
-     */
     isGeminiAvailable() {
         return !!this.geminiModel;
     }
@@ -287,213 +220,6 @@ ${preview}${lines.length > 10 ? '\n...' : ''}
         };
     }
 
-    /**
-     * Build formatted file references with line numbers for summaries
-     * @param {Array} files - Array of file objects
-     * @returns {Array<string>} Formatted file reference bullets
-     */
-    buildKeyFileReferenceList(files) {
-        if (!Array.isArray(files) || files.length === 0) {
-            return [];
-        }
-
-        const scoredFiles = files
-            .filter(file => file && file.filename && typeof file.content === 'string')
-            .map(file => {
-                const lineNumber = this.getRepresentativeLineNumber(file.content);
-                return {
-                    filename: file.filename,
-                    lineNumber,
-                    description: this.describeFile(file.filename, file.content),
-                    score: this.scoreFileForSummary(file.filename, file.content),
-                    size: file.content.length
-                };
-            });
-
-        if (scoredFiles.length === 0) {
-            return [];
-        }
-
-        const topFiles = scoredFiles
-            .sort((a, b) => {
-                if (b.score !== a.score) {
-                    return b.score - a.score;
-                }
-                if (b.size !== a.size) {
-                    return b.size - a.size;
-                }
-                return a.filename.localeCompare(b.filename);
-            })
-            .slice(0, 5);
-
-        return topFiles.map(file => {
-            const safeLine = Number.isInteger(file.lineNumber) && file.lineNumber > 0 ? file.lineNumber : 1;
-            return `• [${file.filename}](${file.filename}:${safeLine}) - ${file.description}`;
-        });
-    }
-
-    /**
-     * Score a file for inclusion in summaries
-     * @param {string} filename - File path
-     * @param {string} content - File content
-     * @returns {number} Score
-     */
-    scoreFileForSummary(filename, content) {
-        const ext = this.getFileExtension(filename);
-        const lower = filename.toLowerCase();
-        let score = 0;
-
-        const extensionScores = {
-            tsx: 6,
-            jsx: 5,
-            ts: 5,
-            js: 4,
-            json: 4,
-            md: 2,
-            css: 2,
-            scss: 2,
-            html: 2
-        };
-
-        if (extensionScores[ext]) {
-            score += extensionScores[ext];
-        } else {
-            score += 1;
-        }
-
-        if (lower.endsWith('package.json')) {
-            score += 5;
-        } else if (lower.includes('/components/') || lower.includes('\\components\\')) {
-            score += 2;
-        } else if (lower.endsWith('README.md')) {
-            score += 3;
-        } else if (lower.includes('/tests/') || lower.includes('\\tests\\')) {
-            score += 1;
-        }
-
-        if (content.includes('useState(') || content.includes('useEffect(')) {
-            score += 1;
-        }
-
-        return score;
-    }
-
-    /**
-     * Describe a file based on its name and content
-     * @param {string} filename - File path
-     * @param {string} content - File content
-     * @returns {string} Description
-     */
-    describeFile(filename, content) {
-        const lower = filename.toLowerCase();
-        const ext = this.getFileExtension(filename);
-
-        if (lower.endsWith('package.json')) {
-            return 'Project dependencies and scripts';
-        }
-        if (lower.endsWith('tsconfig.json')) {
-            return 'TypeScript compiler configuration';
-        }
-        if (lower.endsWith('README.md')) {
-            return 'Documentation overview';
-        }
-        if (lower.includes('/services/') || lower.includes('\\services\\')) {
-            return 'Service logic for backend features';
-        }
-        if (lower.includes('/components/') || lower.includes('\\components\\')) {
-            return 'UI component';
-        }
-
-        switch (ext) {
-            case 'tsx':
-                return content.includes('export default') ?
-                    'React component entry point' :
-                    'React component';
-            case 'jsx':
-                return 'React component';
-            case 'ts':
-                return 'TypeScript module';
-            case 'js':
-                return 'JavaScript module';
-            case 'json':
-                return 'Configuration file';
-            case 'md':
-                return 'Markdown documentation';
-            case 'css':
-            case 'scss':
-                return 'Styling definitions';
-            case 'html':
-                return 'HTML template';
-            default:
-                return 'Source file';
-        }
-    }
-
-    /**
-     * Determine a representative line number for a file
-     * @param {string} content - File content
-     * @returns {number} Line number (1-based)
-     */
-    getRepresentativeLineNumber(content) {
-        if (typeof content !== 'string' || content.length === 0) {
-            return 1;
-        }
-
-        const lines = content.split(/\r?\n/);
-        let inBlockComment = false;
-
-        for (let i = 0; i < lines.length; i++) {
-            const trimmed = lines[i].trim();
-
-            if (trimmed.length === 0) {
-                continue;
-            }
-
-            if (inBlockComment) {
-                if (trimmed.includes('*/')) {
-                    inBlockComment = false;
-                }
-                continue;
-            }
-
-            if (trimmed.startsWith('/*')) {
-                if (!trimmed.includes('*/')) {
-                    inBlockComment = true;
-                }
-                continue;
-            }
-
-            if (trimmed.startsWith('//') || trimmed.startsWith('*')) {
-                continue;
-            }
-
-            if (trimmed.startsWith('import ') || trimmed.startsWith('export {')) {
-                continue;
-            }
-
-            return i + 1;
-        }
-
-        return 1;
-    }
-
-    /**
-     * Extract file extension
-     * @param {string} filename - File path
-     * @returns {string} File extension without dot
-     */
-    getFileExtension(filename) {
-        if (typeof filename !== 'string') {
-            return '';
-        }
-
-        const lastDot = filename.lastIndexOf('.');
-        if (lastDot === -1 || lastDot === filename.length - 1) {
-            return '';
-        }
-
-        return filename.slice(lastDot + 1).toLowerCase();
-    }
 }
 
 module.exports = LLMService;

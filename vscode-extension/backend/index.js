@@ -70,13 +70,13 @@ app.post('/upload', async (req, res) => {
         // Generate directory tree with file previews
         const directoryTree = generateDirectoryTree(files);
         
-        // Generate AI response using LLM service (Gemini or mock)
+        // Generate AI response using LLM service (Gemini)
         const aiResponse = await llmService.generateResponse(prompt, files, null);
         
         // Prepare response
         const response = {
-            message: `Successfully received ${files.length} files. Prompt was: '${prompt}'`,
-            mockResponse: aiResponse,
+            message: `Successfully processed ${files.length} files.`,
+            aiResponse,
             directoryTree: directoryTree,
             llmStatus: llmService.getStatus(),
             metadata: {
@@ -167,10 +167,6 @@ function formatDirectoryTree(tree, indent = '') {
     
     return result;
 }
-
-// Note: Mock LLM response generation has been moved to LLMService
-
-// All mock response functions have been moved to LLMService
 
 // Error handling middleware
 app.use((error, req, res, next) => {

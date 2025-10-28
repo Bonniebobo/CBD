@@ -9,7 +9,7 @@
     "test": "node tests/test-citation.js",
     "test:integration": "node tests/test-backend.js",
     "test:gemini": "node tests/test-gemini.js"
-  },
+},
   "keywords": [
     "ai",
     "code-assistant",

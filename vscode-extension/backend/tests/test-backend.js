@@ -239,7 +239,9 @@ async function testUploadEndpoint(prompt, files) {
       console.log(`   Message: ${result.data.message}`);
       console.log(`   Files processed: ${result.data.metadata.filesProcessed}`);
       console.log(`   Total characters: ${result.data.metadata.totalCharacters}`);
-      console.log(`   Mock response: ${result.data.mockResponse.substring(0, 100)}...`);
+      if (typeof result.data.aiResponse === 'string') {
+        console.log(`   AI response: ${result.data.aiResponse.substring(0, 100)}...`);
+      }
       return true;
     } else {
       console.log('❌ Upload test failed');

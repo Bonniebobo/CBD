@@ -87,15 +87,16 @@ async function testGeminiIntegration() {
     
     if (!status.geminiAvailable) {
         console.log('⚠️  Gemini API key not found or invalid.');
-        console.log('   To test with real Gemini:');
+        console.log('   These tests require a live Gemini configuration.');
         console.log('   1. Get API key from: https://makersuite.google.com/app/apikey');
         console.log('   2. Set environment variable: GEMINI_API_KEY=your_key');
         console.log('   3. Restart the backend');
         console.log('');
-        console.log('   Testing with mock responses...');
-    } else {
-        console.log('✅ Gemini API is available! Testing real AI responses...');
+        console.log('   Skipping Gemini response tests.');
+        return;
     }
+
+    console.log('✅ Gemini API is available! Testing real AI responses...');
     
     let passed = 0;
     let total = 0;
@@ -115,13 +116,6 @@ async function testGeminiIntegration() {
             console.log(`   Response length: ${response.length} characters`);
             console.log(`   Response preview: ${response.substring(0, 100)}...`);
             
-            // Check if it's a real Gemini response or mock
-            if (response.startsWith('LLM would say:')) {
-                console.log('   Type: Mock response (fallback)');
-            } else {
-                console.log('   Type: Real Gemini response');
-            }
-            
             passed++;
         } catch (error) {
             console.log('❌ Request failed with error:', error.message);
@@ -132,30 +126,17 @@ async function testGeminiIntegration() {
     console.log(`📊 Test Results: ${passed}/${total} tests passed`);
     
     if (passed === total) {
-        if (status.geminiAvailable) {
-            console.log('🎉 All Gemini integration tests passed!');
-            console.log('✨ Your backend is now using real AI responses!');
-        } else {
-            console.log('🎉 All mock response tests passed!');
-            console.log('✨ Backend is working with fallback responses.');
-            console.log('   Add a Gemini API key to enable real AI responses.');
-        }
+        console.log('🎉 All Gemini integration tests passed!');
+        console.log('✨ Your backend is now using real AI responses!');
     } else {
         console.log('⚠️  Some tests failed.');
         console.log('   Check the error messages above for details.');
     }
     
     console.log('\n📝 Next steps:');
-    if (!status.geminiAvailable) {
-        console.log('   1. Get a free Gemini API key from Google AI Studio');
-        console.log('   2. Set GEMINI_API_KEY environment variable');
-        console.log('   3. Restart the backend');
-        console.log('   4. Run this test again to verify real AI responses');
-    } else {
-        console.log('   1. Test the VS Code extension integration');
-        console.log('   2. Send real prompts from the extension');
-        console.log('   3. Check both VS Code and backend console logs');
-    }
+    console.log('   1. Test the VS Code extension integration');
+    console.log('   2. Send real prompts from the extension');
+    console.log('   3. Check both VS Code and backend console logs');
 }
 
 // Run tests if this script is executed directly

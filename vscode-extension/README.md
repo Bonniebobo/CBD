@@ -76,8 +76,8 @@ The extension sends a JSON payload like this:
 The backend responds with:
 ```json
 {
-  "message": "Successfully received 2 files. Prompt was: 'Summarize this React application'",
-  "mockResponse": "LLM would say: 'Based on your 2 files, this appears to be a React-based application...'",
+  "message": "Successfully processed 2 files.",
+  "aiResponse": "Real Gemini AI response here...",
   "metadata": {
     "filesProcessed": 2,
     "totalCharacters": 156,
@@ -152,9 +152,9 @@ Response generated successfully
 
 ### Common Issues
 
-1. **Backend not running:**
-   - Error: "Backend unavailable. Using offline mode"
-   - Solution: Start backend with `npm start` in backend/ folder
+1. **Backend not running or Gemini key missing:**
+   - Error: "Failed to contact the Gemini backend: ..."
+   - Solution: Start the backend with `npm start` in the `backend/` folder and ensure `GEMINI_API_KEY` is configured
 
 2. **CORS errors:**
    - Error: Network request failed
@@ -202,9 +202,8 @@ The extension supports these file types:
 
 ## 🔮 Future Enhancements
 
-The current implementation uses mock LLM responses. Future versions will include:
+The current implementation integrates with Google's Gemini API for real responses. Future versions could include:
 
-- **Real LLM Integration:** Gemini, OpenAI, or other AI services
 - **Streaming Responses:** Real-time response streaming
 - **User Authentication:** API key management
 - **Chat History:** Persistent conversation storage

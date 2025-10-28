@@ -17,20 +17,10 @@ class ChatViewProvider {
     getChildren(element) {
         if (!element) {
             return Promise.resolve([
-                new ChatViewItem('Open AI Chat', 'Start a new conversation with the AI assistant', vscode.TreeItemCollapsibleState.None, {
+                new ChatViewItem('Open AI Chat', 'Start a new conversation with the Gemini-powered assistant', vscode.TreeItemCollapsibleState.None, {
                     command: 'ai-chatbot.openChat',
                     title: 'Open AI Chat',
                     arguments: []
-                }),
-                new ChatViewItem('Repository Analysis', 'Analyze your current repository structure', vscode.TreeItemCollapsibleState.None, {
-                    command: 'ai-chatbot.openChat',
-                    title: 'Repository Analysis',
-                    arguments: ['analyze repository']
-                }),
-                new ChatViewItem('Code Generation', 'Generate code based on your requirements', vscode.TreeItemCollapsibleState.None, {
-                    command: 'ai-chatbot.openChat',
-                    title: 'Code Generation',
-                    arguments: ['generate code']
                 })
             ]);
         }
