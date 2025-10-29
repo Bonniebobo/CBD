@@ -68,7 +68,7 @@ app.post('/upload', async (req, res) => {
         });
         
         // Generate directory tree with file previews
-        const directoryTree = generateDirectoryTree(files);
+        const directoryTree = llmService.generateDirectoryTree(files);
         
         // Generate AI response using LLM service (Gemini)
         const aiResponse = await llmService.generateResponse(prompt, files, null);
@@ -99,50 +99,6 @@ app.post('/upload', async (req, res) => {
         });
     }
 });
-
-// Generate directory tree with file previews
-function generateDirectoryTree(files) {
-    const tree = {};
-    
-    files.forEach(file => {
-        if (!file.filename) return;
-        
-        const pathParts = file.filename.split('/');
-        let current = tree;
-        
-        // Build nested structure
-        for (let i = 0; i < pathParts.length; i++) {
-            const part = pathParts[i];
-            const isLast = i === pathParts.length - 1;
-            
-            if (isLast) {
-                // This is a file
-                const content = file.content || '';
-                const lines = content.split('\n');
-                const firstThreeLines = lines.slice(0, 3).map(line => line.trim()).filter(line => line.length > 0);
-                
-                current[part] = {
-                    type: 'file',
-                    size: content.length,
-                    extension: part.split('.').pop() || 'unknown',
-                    preview: firstThreeLines,
-                    fullContent: content
-                };
-            } else {
-                // This is a directory
-                if (!current[part]) {
-                    current[part] = {
-                        type: 'directory',
-                        children: {}
-                    };
-                }
-                current = current[part].children;
-            }
-        }
-    });
-    
-    return tree;
-}
 
 // Error handling middleware
 app.use((error, req, res, next) => {
