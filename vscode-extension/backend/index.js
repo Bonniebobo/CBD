@@ -144,30 +144,6 @@ function generateDirectoryTree(files) {
     return tree;
 }
 
-// Convert tree to formatted string
-function formatDirectoryTree(tree, indent = '') {
-    let result = '';
-    
-    Object.keys(tree).sort().forEach(key => {
-        const item = tree[key];
-        
-        if (item.type === 'directory') {
-            result += `${indent}📁 ${key}/\n`;
-            result += formatDirectoryTree(item.children, indent + '  ');
-        } else if (item.type === 'file') {
-            result += `${indent}📄 ${key} (${item.size} chars, .${item.extension})\n`;
-            if (item.preview && item.preview.length > 0) {
-                item.preview.forEach(line => {
-                    result += `${indent}   ${line}\n`;
-                });
-            }
-            result += `${indent}   ...\n`;
-        }
-    });
-    
-    return result;
-}
-
 // Error handling middleware
 app.use((error, req, res, next) => {
     console.error('Unhandled error:', error);
