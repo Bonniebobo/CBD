@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     defaults:
       run:
         working-directory: vscode-extension/backend
