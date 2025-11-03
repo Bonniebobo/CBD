@@ -8,7 +8,9 @@
     "dev": "nodemon index.js",
     "test": "node tests/test-citation.js",
     "test:integration": "node tests/test-backend.js",
-    "test:gemini": "node tests/test-gemini.js"
+    "test:gemini": "node tests/test-gemini.js",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix"
   },
   "keywords": [
     "ai",
@@ -26,6 +28,7 @@
     "express": "^4.18.2"
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
     "nodemon": "^3.0.1"
   },
   "engines": {
