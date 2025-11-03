@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend Auto & Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    defaults:
+      run:
+        working-directory: vscode-extension/backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: vscode-extension/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run automated integration tests
+        run: |
+          npm start &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID" EXIT
+
+          for i in {1..20}; do
+            if curl --silent --fail http://127.0.0.1:3001/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if ! curl --silent --fail http://127.0.0.1:3001/health > /dev/null; then
+            echo "Backend failed to become healthy in time."
+            exit 1
+          fi
+
+          npm run test:integration
