@@ -35,10 +35,10 @@ module.exports = {
             files: ['vscode-extension/frontend/ai-chatbot-extension/**/*.ts'],
             extends: ['./vscode-extension/frontend/ai-chatbot-extension/.eslintrc.js'],
         },
-        // Frontend React workspace
+        // Frontend Mock workspace
         {
-            files: ['vscode-extension/frontend/test-mock-workspace/**/*.{ts,tsx}'],
-            extends: ['./vscode-extension/frontend/test-mock-workspace/.eslintrc.js'],
+            files: ['test-mock-workspace/**/*.{ts,tsx}'],
+            extends: ['.test-mock-workspace/.eslintrc.js'],
         },
         // P3 projects
         {
