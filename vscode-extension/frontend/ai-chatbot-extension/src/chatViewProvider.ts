@@ -24,9 +24,9 @@ export class ChatViewProvider implements vscode.TreeDataProvider<ChatViewItem>, 
                     {
                         command: 'ai-chatbot.openChat',
                         title: 'Open AI Chat',
-                        arguments: []
-                    }
-                )
+                        arguments: [],
+                    },
+                ),
             ]);
         }
         return Promise.resolve([]);
@@ -42,7 +42,7 @@ export class ChatViewItem extends vscode.TreeItem {
         public readonly label: string,
         description: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-        public readonly command?: vscode.Command
+        public readonly command?: vscode.Command,
     ) {
         super(label, collapsibleState);
         this.tooltip = description;
@@ -51,6 +51,6 @@ export class ChatViewItem extends vscode.TreeItem {
 
     iconPath = {
         light: vscode.Uri.joinPath(vscode.Uri.file(__dirname), '..', '..', 'resources', 'light', 'chat.svg'),
-        dark: vscode.Uri.joinPath(vscode.Uri.file(__dirname), '..', '..', 'resources', 'dark', 'chat.svg')
+        dark: vscode.Uri.joinPath(vscode.Uri.file(__dirname), '..', '..', 'resources', 'dark', 'chat.svg'),
     };
 }

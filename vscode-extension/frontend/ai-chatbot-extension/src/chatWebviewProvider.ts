@@ -16,7 +16,7 @@ const CONFIG = {
     FILE_OPEN_COLUMN: vscode.ViewColumn.One,
     LOAD_DELAY_MS: 100,
     SAVE_DELAY_MS: 100,
-    WEBVIEW_REQUEST_DELAY_MS: 200
+    WEBVIEW_REQUEST_DELAY_MS: 200,
 } as const;
 
 /**
@@ -33,19 +33,35 @@ const MESSAGE_TYPES = {
     WORKSPACE_FILES: 'workspaceFiles',
     CURRENT_FILE: 'currentFile',
     LOAD_CHAT_HISTORY: 'loadChatHistory',
-    INITIAL_MESSAGE: 'initialMessage'
+    INITIAL_MESSAGE: 'initialMessage',
 } as const;
 
 /**
+ * Type definitions for webview messages
+ */
+interface ChatMessage {
+    type: string;
+    content: string;
+}
+
+interface WebviewMessage {
+    type: string;
+    text?: string;
+    fileName?: string;
+    lineNumber?: number;
+    messages?: ChatMessage[];
+}
+
+/**
  * AI Chatbot Webview Provider
- * 
+ *
  * Manages the VS Code webview panel for the AI Chatbot Assistant.
  * Handles communication between the extension and the webview,
  * chat history persistence, and file navigation.
  */
 export class ChatWebviewProvider implements vscode.Disposable {
     public static readonly viewType = CONFIG.VIEW_TYPE;
-    
+
     private _panel: vscode.WebviewPanel | undefined;
     private readonly _extensionUri: vscode.Uri;
     private readonly _context: vscode.ExtensionContext;
@@ -70,9 +86,9 @@ export class ChatWebviewProvider implements vscode.Disposable {
     /**
      * Restores a webview panel from serialized state
      * @param panel The webview panel to restore
-     * @param state Serialized state (unused)
+     * @param _state Serialized state (unused)
      */
-    public restore(panel: vscode.WebviewPanel, state: any): void {
+    public restore(panel: vscode.WebviewPanel, _state: unknown): void {
         this._panel = panel;
         this._setupWebview(panel);
         this._setupMessageHandlers(panel);
@@ -98,13 +114,13 @@ export class ChatWebviewProvider implements vscode.Disposable {
         }
 
         console.log(`[AI Chatbot] Panel already exists, revealing in column ${CONFIG.VIEW_COLUMN}`);
-        
+
         try {
             this._panel.reveal(CONFIG.VIEW_COLUMN);
             if (initialMessage) {
                 this._sendMessageToWebview({
                     type: MESSAGE_TYPES.INITIAL_MESSAGE,
-                    message: initialMessage
+                    message: initialMessage,
                 });
             }
             return true;
@@ -133,9 +149,9 @@ export class ChatWebviewProvider implements vscode.Disposable {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [
-                    vscode.Uri.joinPath(this._extensionUri, 'out')
-                ]
-            }
+                    vscode.Uri.joinPath(this._extensionUri, 'out'),
+                ],
+            },
         );
 
         this._setupWebview(this._panel);
@@ -145,7 +161,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
         if (initialMessage) {
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.INITIAL_MESSAGE,
-                message: initialMessage
+                message: initialMessage,
             });
         }
 
@@ -167,7 +183,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
     private _setupMessageHandlers(panel: vscode.WebviewPanel): void {
         panel.webview.onDidReceiveMessage(
             async (message) => this._handleWebviewMessage(message),
-            null
+            null,
         );
     }
 
@@ -178,7 +194,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
     private _setupPanelEventHandlers(panel: vscode.WebviewPanel): void {
         // Handle panel disposal
         panel.onDidDispose(() => {
-            console.log(`[AI Chatbot] Panel disposed`);
+            console.log('[AI Chatbot] Panel disposed');
             this._panel = undefined;
         }, null);
 
@@ -195,10 +211,10 @@ export class ChatWebviewProvider implements vscode.Disposable {
      * Handles messages from the webview
      * @param message The message from the webview
      */
-    private async _handleWebviewMessage(message: any): Promise<void> {
+    private async _handleWebviewMessage(message: WebviewMessage): Promise<void> {
         switch (message.type) {
             case MESSAGE_TYPES.SEND_MESSAGE:
-                await this._handleUserMessage(message.text);
+                await this._handleUserMessage(message.text || '');
                 break;
             case MESSAGE_TYPES.GET_WORKSPACE_FILES:
                 this._sendWorkspaceFiles();
@@ -207,10 +223,10 @@ export class ChatWebviewProvider implements vscode.Disposable {
                 this._sendCurrentFile();
                 break;
             case MESSAGE_TYPES.OPEN_FILE:
-                await this._openFile(message.fileName, message.lineNumber);
+                await this._openFile(message.fileName || '', message.lineNumber);
                 break;
             case MESSAGE_TYPES.SAVE_CHAT_HISTORY:
-                this._saveChatHistory(message.messages);
+                this._saveChatHistory(message.messages || []);
                 break;
             case MESSAGE_TYPES.REQUEST_CHAT_HISTORY:
                 this._loadChatHistory();
@@ -231,7 +247,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
             // Show loading state
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
-                response: "🤖 Analyzing your codebase... Please wait."
+                response: '🤖 Analyzing your codebase... Please wait.',
             });
 
             // Get workspace context with file contents
@@ -242,7 +258,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
 
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
-                response: response
+                response: response,
             });
         } catch (error) {
             console.error('[AI Chatbot] Error handling user message:', error);
@@ -250,7 +266,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
-                response: `⚠️ Failed to contact the Gemini backend: ${errorMessage}`
+                response: `⚠️ Failed to contact the Gemini backend: ${errorMessage}`,
             });
         }
     }
@@ -263,19 +279,19 @@ export class ChatWebviewProvider implements vscode.Disposable {
     private async _openFile(fileName: string, lineNumber?: number): Promise<void> {
         try {
             let document: vscode.TextDocument | undefined;
-            
+
             // First try to find the file in the workspace
             const workspaceFiles = await this._getWorkspaceFiles();
-            const matchingFile = workspaceFiles.find(file => 
-                file.endsWith(fileName) || file.includes(fileName)
+            const matchingFile = workspaceFiles.find(file =>
+                file.endsWith(fileName) || file.includes(fileName),
             );
-            
+
             if (matchingFile) {
                 // Get the workspace folder to construct the absolute path
                 if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
                     const workspaceFolder = vscode.workspace.workspaceFolders[0];
                     const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, matchingFile);
-                    
+
                     try {
                         document = await vscode.workspace.openTextDocument(absolutePath);
                     } catch (e) {
@@ -283,7 +299,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
                     }
                 }
             }
-            
+
             if (!document) {
                 // Fallback: try the file name directly (in case it's already an absolute path)
                 try {
@@ -292,11 +308,11 @@ export class ChatWebviewProvider implements vscode.Disposable {
                     throw new Error(`File not found: ${fileName}`);
                 }
             }
-            
+
             if (document) {
                 // Open the file in the left panel to keep the chat on the right
                 const editor = await vscode.window.showTextDocument(document, CONFIG.FILE_OPEN_COLUMN);
-                
+
                 if (lineNumber) {
                     const position = new vscode.Position(lineNumber - 1, 0);
                     editor.selection = new vscode.Selection(position, position);
@@ -307,7 +323,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
             // Show a helpful error message
             vscode.window.showWarningMessage(
                 `File not found in current workspace: ${fileName}. Please ensure the file exists or open the correct workspace.`,
-                'OK'
+                'OK',
             );
         }
     }
@@ -318,7 +334,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
      */
     private async _getWorkspaceFiles(): Promise<string[]> {
         const files: string[] = [];
-        
+
         if (vscode.workspace.workspaceFolders) {
             for (const folder of vscode.workspace.workspaceFolders) {
                 const pattern = new vscode.RelativePattern(folder, '**/*');
@@ -327,7 +343,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
                 files.push(...relativePaths);
             }
         }
-        
+
         return files.slice(0, 100); // Limit to first 100 files
     }
 
@@ -337,26 +353,26 @@ export class ChatWebviewProvider implements vscode.Disposable {
      */
     private async _getWorkspaceFilesWithContent(): Promise<Array<{filename: string, content: string}>> {
         const files: Array<{filename: string, content: string}> = [];
-        
+
         if (vscode.workspace.workspaceFolders) {
             for (const folder of vscode.workspace.workspaceFolders) {
                 const pattern = new vscode.RelativePattern(folder, '**/*');
                 const fileUris = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
-                
+
                 // Limit to first 50 files to avoid large payloads
                 const limitedUris = fileUris.slice(0, 50);
-                
+
                 for (const uri of limitedUris) {
                     try {
                         const relativePath = vscode.workspace.asRelativePath(uri);
                         const fileContent = await vscode.workspace.fs.readFile(uri);
                         const content = Buffer.from(fileContent).toString('utf8');
-                        
+
                         // Skip binary files and very large files
                         if (this._isTextFile(relativePath) && content.length < 50000) {
                             files.push({
                                 filename: relativePath,
-                                content: content
+                                content: content,
                             });
                         }
                     } catch (error) {
@@ -365,7 +381,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
                 }
             }
         }
-        
+
         return files;
     }
 
@@ -378,9 +394,9 @@ export class ChatWebviewProvider implements vscode.Disposable {
         const textExtensions = [
             '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.txt', '.css', '.scss', '.html', '.xml', '.yaml', '.yml',
             '.py', '.java', '.cpp', '.c', '.h', '.hpp', '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala',
-            '.vue', '.svelte', '.astro', '.config', '.env', '.gitignore', '.dockerfile', '.dockerignore'
+            '.vue', '.svelte', '.astro', '.config', '.env', '.gitignore', '.dockerfile', '.dockerignore',
         ];
-        
+
         const ext = path.extname(filename).toLowerCase();
         return textExtensions.includes(ext) || !ext; // Include files without extensions
     }
@@ -394,16 +410,16 @@ export class ChatWebviewProvider implements vscode.Disposable {
     private async _callBackendAPI(prompt: string, files: Array<{filename: string, content: string}>): Promise<string> {
         const backendUrl = vscode.workspace.getConfiguration('ai-chatbot').get('backendUrl', 'http://localhost:3001');
         const uploadUrl = `${backendUrl}/upload`;
-        
+
         console.log(`[AI Chatbot] Calling backend API: ${uploadUrl}`);
         console.log(`[AI Chatbot] Sending ${files.length} files with prompt: "${prompt}"`);
-        
+
         return new Promise((resolve, reject) => {
             try {
                 const url = new URL(uploadUrl);
                 const postData = JSON.stringify({
                     files: files,
-                    prompt: prompt
+                    prompt: prompt,
                 });
 
                 const options = {
@@ -413,12 +429,12 @@ export class ChatWebviewProvider implements vscode.Disposable {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(postData)
-                    }
+                        'Content-Length': Buffer.byteLength(postData),
+                    },
                 };
 
                 const client = url.protocol === 'https:' ? https : http;
-                
+
                 const req = client.request(options, (res) => {
                     let data = '';
 
@@ -430,8 +446,8 @@ export class ChatWebviewProvider implements vscode.Disposable {
                         try {
                             if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
                                 const responseData = JSON.parse(data);
-                                console.log(`[AI Chatbot] Backend response received:`, responseData.message);
-                                
+                                console.log('[AI Chatbot] Backend response received:', responseData.message);
+
                                 if (responseData.error) {
                                     reject(new Error(responseData.error));
                                     return;
@@ -487,7 +503,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
         this._getWorkspaceFiles().then(files => {
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.WORKSPACE_FILES,
-                files: files
+                files: files,
             });
         });
     }
@@ -499,7 +515,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
         const currentFile = this._getCurrentFile();
         this._sendMessageToWebview({
             type: MESSAGE_TYPES.CURRENT_FILE,
-            file: currentFile
+            file: currentFile,
         });
     }
 
@@ -507,7 +523,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
      * Sends a message to the webview
      * @param message The message to send
      */
-    private _sendMessageToWebview(message: any): void {
+    private _sendMessageToWebview(message: Record<string, unknown>): void {
         if (this._panel) {
             this._panel.webview.postMessage(message);
         }
@@ -517,15 +533,15 @@ export class ChatWebviewProvider implements vscode.Disposable {
      * Loads chat history from storage
      */
     private _loadChatHistory(): void {
-        if (!this._panel) return;
-        
+        if (!this._panel) {return;}
+
         const chatHistory = this._context.globalState.get(CONFIG.CHAT_HISTORY_KEY, []);
-        console.log(`[AI Chatbot] Loading chat history:`, chatHistory.length, 'messages');
-        
+        console.log('[AI Chatbot] Loading chat history:', chatHistory.length, 'messages');
+
         if (chatHistory.length > 0) {
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.LOAD_CHAT_HISTORY,
-                messages: chatHistory
+                messages: chatHistory,
             });
         }
     }
@@ -543,9 +559,9 @@ export class ChatWebviewProvider implements vscode.Disposable {
      * Saves chat history to storage
      * @param messages Array of chat messages
      */
-    private _saveChatHistory(messages: any[]): void {
+    private _saveChatHistory(messages: ChatMessage[]): void {
         this._context.globalState.update(CONFIG.CHAT_HISTORY_KEY, messages);
-        console.log(`[AI Chatbot] Saved chat history:`, messages.length, 'messages');
+        console.log('[AI Chatbot] Saved chat history:', messages.length, 'messages');
     }
 
     /**
@@ -553,7 +569,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
      */
     private _clearChatHistory(): void {
         this._context.globalState.update(CONFIG.CHAT_HISTORY_KEY, []);
-        console.log(`[AI Chatbot] Cleared chat history for new panel`);
+        console.log('[AI Chatbot] Cleared chat history for new panel');
     }
 
     /**
@@ -564,21 +580,21 @@ export class ChatWebviewProvider implements vscode.Disposable {
     private _getHtmlForWebview(webview: vscode.Webview): string {
         // Try to load the built React app first
         const reactAppPath = vscode.Uri.joinPath(this._extensionUri, 'out', 'index.html');
-        
+
         try {
             if (fs.existsSync(reactAppPath.fsPath)) {
                 let html = fs.readFileSync(reactAppPath.fsPath, 'utf8');
-                
+
                 // Update resource paths to work with webview
                 html = html.replace(
                     /src="([^"]*\.js)"/g,
-                    (match, src) => `src="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', src))}"`
+                    (match, src) => `src="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', src))}"`,
                 );
                 html = html.replace(
                     /href="([^"]*\.css)"/g,
-                    (match, href) => `href="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', href))}"`
+                    (match, href) => `href="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', href))}"`,
                 );
-                
+
                 // Inject VS Code API
                 html = html.replace(
                     '</head>',
@@ -613,25 +629,25 @@ export class ChatWebviewProvider implements vscode.Disposable {
                             }
                         };
                     </script>
-                    </head>`
+                    </head>`,
                 );
-                
+
                 return html;
             }
         } catch (error) {
             console.log(`[AI Chatbot] Failed to load React app, using fallback: ${error}`);
         }
-        
+
         // Fallback to inline HTML
         return this._getFallbackHtml(webview);
     }
 
     /**
      * Generates fallback HTML content for the webview
-     * @param webview The webview instance
+     * @param _webview The webview instance
      * @returns HTML string
      */
-    private _getFallbackHtml(webview: vscode.Webview): string {
+    private _getFallbackHtml(_webview: vscode.Webview): string {
         return `<!DOCTYPE html>
         <html lang="en">
         <head>

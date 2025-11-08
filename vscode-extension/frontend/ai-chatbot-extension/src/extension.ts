@@ -12,7 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Register the chat view
     const chatView = vscode.window.createTreeView('ai-chatbot.chatView', {
         treeDataProvider: chatViewProvider,
-        showCollapseAll: true
+        showCollapseAll: true,
     });
 
     // Register commands
@@ -32,10 +32,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register webview panel serializer for persistence
     const webviewSerializer = vscode.window.registerWebviewPanelSerializer('ai-chatbot.webview', {
-        deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any): Thenable<void> {
+        deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: unknown): Thenable<void> {
             chatWebviewProvider.restore(webviewPanel, state);
             return Promise.resolve();
-        }
+        },
     });
 
     // Add to subscriptions
@@ -45,7 +45,7 @@ export function activate(context: vscode.ExtensionContext) {
         openChatInEditorCommand,
         webviewSerializer,
         chatViewProvider,
-        chatWebviewProvider
+        chatWebviewProvider,
     );
 }
 
