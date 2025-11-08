@@ -56,16 +56,17 @@ The backend analyzes your codebase structure, generates contextual AI responses,
    npm run dev
    ```
 
-5. Test the backend:
-   ```bash
-   npm test
-   
-   # Or run individual test suites
-   npm run test:citation      # Citation format tests
-   npm run test:backend       # Backend functionality tests
-   npm run test:integration   # Integration tests
-   npm run test:gemini        # Gemini API tests
-   ```
+ 5. Test the backend:
+    ```bash
+    # Run unit tests (no server required)
+    npm test
+    
+    # Run API tests (requires server running in another terminal)
+    npm run test:api
+    
+    # Run all tests
+    npm run test:all
+    ```
 
 ### Quick Deployment
 
@@ -169,42 +170,50 @@ Health check endpoint for monitoring.
 
 The backend includes comprehensive test suites:
 
-**Run all tests:**
+**Quick test (no server required):**
 ```bash
 npm test
 ```
 
-This runs all 4 test suites in sequence:
-1. Citation format tests
-2. Backend functionality tests  
-3. Integration tests
-4. Gemini API tests
+Runs LLM service tests including directory tree generation, citations, and Gemini integration (if API key is configured).
 
-**Run individual test suites:**
+**Full test suite:**
+```bash
+# Terminal 1: Start the server
+npm start
 
-1. **Citation Tests** (`test-citation.js`):
+# Terminal 2: Run all tests
+npm run test:all
+```
+
+**Individual test suites:**
+
+1. **LLM Service Tests** (`test-llm.js`) - No server required:
    ```bash
-   npm run test:citation
+   npm test
+   # or
+   npm run test:llm
    ```
-   Tests citation format conversion for linking to code locations.
+   Tests the LLMService class including:
+   - Service status and configuration
+   - Directory tree generation
+   - Citation generation in AI responses
+   - Multiple prompt handling
+   - Error handling
+   - Gemini API integration (if API key is configured)
 
-2. **Backend Tests** (`test-backend.js`):
+2. **API Integration Tests** (`test-api.js`) - Requires server:
    ```bash
-   npm run test:backend
+   npm run test:api
    ```
-   Tests core backend functionality including directory tree generation.
-
-3. **Integration Tests** (`test-integration.js`):
-   ```bash
-   npm run test:integration
-   ```
-   Tests the full API endpoints and request/response handling.
-
-4. **Gemini Tests** (`test-gemini.js`):
-   ```bash
-   npm run test:gemini
-   ```
-   Tests Gemini API integration with real API calls (requires `GEMINI_API_KEY`).
+   Tests the HTTP API endpoints including:
+   - Health check endpoint
+   - Upload endpoint with various prompts
+   - Request validation and error handling
+   - 404 handling
+   - VS Code extension integration simulation
+   
+   **⚠️ Important:** Start the backend server first with `npm start` in another terminal.
 
 ### Manual Testing with curl
 
@@ -375,6 +384,23 @@ app.use(cors({
 
 
 ## Development
+
+### Project Structure
+
+```
+backend/
+├── index.js              # Main server file
+├── package.json          # Dependencies and scripts
+├── README.md             # This file
+├── deploy.sh             # Deployment helper script
+├── services/
+│   └── llmService.js     # LLM service for Gemini integration
+├── tests/
+│   ├── test-data.js      # Shared mock data for tests
+│   ├── test-llm.js       # LLM service tests
+│   └── test-api.js       # API integration tests
+└── node_modules/         # Dependencies (after npm install)
+```
 
 ## Troubleshooting
 

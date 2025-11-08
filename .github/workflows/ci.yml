@@ -36,7 +36,7 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-      - name: Run automated integration tests
+      - name: Run server then integration tests
         run: |
           npm start &
           SERVER_PID=$!
@@ -54,7 +54,7 @@ jobs:
             exit 1
           fi
 
-          npm run test:integration
+          npm run test:api
 
   frontend-lint:
     name: Frontend ESLint Checks

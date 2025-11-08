@@ -6,11 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node tests/test-citation.js && node tests/test-backend.js && node tests/test-integration.js && node tests/test-gemini.js",
-    "test:citation": "node tests/test-citation.js",
-    "test:backend": "node tests/test-backend.js",
-    "test:integration": "node tests/test-integration.js",
-    "test:gemini": "node tests/test-gemini.js",
+    "test": "node tests/test-llm.js",
+    "test:llm": "node tests/test-llm.js",
+    "test:api": "node tests/test-api.js",
     "lint": "eslint . --ext .js",
     "lint:fix": "eslint . --ext .js --fix"
   },
