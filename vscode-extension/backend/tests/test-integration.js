@@ -233,10 +233,10 @@ async function testExtensionBackendIntegration() {
                 prompt: prompt
             });
             
-            if (result.success && result.data.mockResponse) {
+            if (result.success && typeof result.data.aiResponse === 'string') {
                 console.log('✅ Request successful');
                 console.log(`   Files sent: ${mockWorkspaceFiles.length}`);
-                console.log(`   Response: ${result.data.mockResponse.substring(0, 100)}...`);
+                console.log(`   Response: ${result.data.aiResponse.substring(0, 100)}...`);
                 console.log(`   Metadata: ${result.data.metadata.filesProcessed} files processed`);
                 
                 // Check for directory tree

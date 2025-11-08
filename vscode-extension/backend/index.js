@@ -68,15 +68,15 @@ app.post('/upload', async (req, res) => {
         });
         
         // Generate directory tree with file previews
-        const directoryTree = generateDirectoryTree(files);
+        const directoryTree = llmService.generateDirectoryTree(files);
         
-        // Generate AI response using LLM service (Gemini or mock)
+        // Generate AI response using LLM service (Gemini)
         const aiResponse = await llmService.generateResponse(prompt, files, null);
         
         // Prepare response
         const response = {
-            message: `Successfully received ${files.length} files. Prompt was: '${prompt}'`,
-            mockResponse: aiResponse,
+            message: `Successfully processed ${files.length} files.`,
+            aiResponse,
             directoryTree: directoryTree,
             llmStatus: llmService.getStatus(),
             metadata: {
@@ -99,78 +99,6 @@ app.post('/upload', async (req, res) => {
         });
     }
 });
-
-// Generate directory tree with file previews
-function generateDirectoryTree(files) {
-    const tree = {};
-    
-    files.forEach(file => {
-        if (!file.filename) return;
-        
-        const pathParts = file.filename.split('/');
-        let current = tree;
-        
-        // Build nested structure
-        for (let i = 0; i < pathParts.length; i++) {
-            const part = pathParts[i];
-            const isLast = i === pathParts.length - 1;
-            
-            if (isLast) {
-                // This is a file
-                const content = file.content || '';
-                const lines = content.split('\n');
-                const firstThreeLines = lines.slice(0, 3).map(line => line.trim()).filter(line => line.length > 0);
-                
-                current[part] = {
-                    type: 'file',
-                    size: content.length,
-                    extension: part.split('.').pop() || 'unknown',
-                    preview: firstThreeLines,
-                    fullContent: content
-                };
-            } else {
-                // This is a directory
-                if (!current[part]) {
-                    current[part] = {
-                        type: 'directory',
-                        children: {}
-                    };
-                }
-                current = current[part].children;
-            }
-        }
-    });
-    
-    return tree;
-}
-
-// Convert tree to formatted string
-function formatDirectoryTree(tree, indent = '') {
-    let result = '';
-    
-    Object.keys(tree).sort().forEach(key => {
-        const item = tree[key];
-        
-        if (item.type === 'directory') {
-            result += `${indent}📁 ${key}/\n`;
-            result += formatDirectoryTree(item.children, indent + '  ');
-        } else if (item.type === 'file') {
-            result += `${indent}📄 ${key} (${item.size} chars, .${item.extension})\n`;
-            if (item.preview && item.preview.length > 0) {
-                item.preview.forEach(line => {
-                    result += `${indent}   ${line}\n`;
-                });
-            }
-            result += `${indent}   ...\n`;
-        }
-    });
-    
-    return result;
-}
-
-// Note: Mock LLM response generation has been moved to LLMService
-
-// All mock response functions have been moved to LLMService
 
 // Error handling middleware
 app.use((error, req, res, next) => {

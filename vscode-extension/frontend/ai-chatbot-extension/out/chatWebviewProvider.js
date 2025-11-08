@@ -202,9 +202,8 @@ class ChatWebviewProvider {
             });
             // Get workspace context with file contents
             const workspaceFiles = await this._getWorkspaceFilesWithContent();
-            const currentFile = this._getCurrentFile();
             // Call backend API
-            const response = await this._callBackendAPI(text, workspaceFiles, currentFile);
+            const response = await this._callBackendAPI(text, workspaceFiles);
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
                 response: response
@@ -212,170 +211,12 @@ class ChatWebviewProvider {
         }
         catch (error) {
             console.error('[AI Chatbot] Error handling user message:', error);
-            // Fallback to mock response on error
-            const fallbackResponse = await this._generateAIResponse(text, [], undefined);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
-                response: `⚠️ Backend unavailable. Using offline mode:\n\n${fallbackResponse}`
+                response: `⚠️ Failed to contact the Gemini backend: ${errorMessage}`
             });
         }
-    }
-    /**
-     * Generates AI responses based on user input
-     * @param message The user's message
-     * @param workspaceFiles Available workspace files
-     * @param currentFile Currently open file
-     * @returns AI response string
-     */
-    async _generateAIResponse(message, workspaceFiles, currentFile) {
-        const lowerMessage = message.toLowerCase();
-        if (lowerMessage.includes('summary') || lowerMessage.includes('repository') || lowerMessage.includes('repo')) {
-            return this._generateRepositorySummary(workspaceFiles, currentFile);
-        }
-        else if (lowerMessage.includes('explain') || lowerMessage.includes('what') || lowerMessage.includes('how')) {
-            return this._generateExplanationResponse(currentFile, workspaceFiles);
-        }
-        else if (lowerMessage.includes('generate') || lowerMessage.includes('create') || lowerMessage.includes('new')) {
-            return this._generateCodeGenerationResponse(workspaceFiles);
-        }
-        else {
-            return this._generateGeneralResponse(message, workspaceFiles, currentFile);
-        }
-    }
-    /**
-     * Generates a repository summary response
-     * @param workspaceFiles Available workspace files
-     * @param currentFile Currently open file
-     * @returns Repository summary string
-     */
-    _generateRepositorySummary(workspaceFiles, currentFile) {
-        const hasReact = workspaceFiles.some(f => f.includes('App.tsx') || f.includes('index.tsx'));
-        const hasComponents = workspaceFiles.some(f => f.includes('components/'));
-        const hasTypes = workspaceFiles.some(f => f.includes('types/') || f.includes('.ts'));
-        const hasPackageJson = workspaceFiles.some(f => f.includes('package.json'));
-        // Find actual file paths in the workspace
-        const headerFile = workspaceFiles.find(f => f.includes('Header.tsx'));
-        const sidebarFile = workspaceFiles.find(f => f.includes('Sidebar.tsx'));
-        const chatInterfaceFile = workspaceFiles.find(f => f.includes('ChatInterface.tsx'));
-        const appFile = workspaceFiles.find(f => f.includes('App.tsx'));
-        const packageFile = workspaceFiles.find(f => f.includes('package.json'));
-        if (hasReact && hasComponents) {
-            return `This is a VS Code extension project for an AI coding assistant. The main components include:
-
-• React Components: [Header component](${headerFile || 'src/components/Header.tsx'}:8), [Sidebar navigation](${sidebarFile || 'src/components/Sidebar.tsx'}:12), and [ChatInterface](${chatInterfaceFile || 'src/components/ChatInterface.tsx'}:45) for the UI
-• Core Logic: Main [App function](${appFile || 'src/App.tsx'}:9) with [useState hooks](${appFile || 'src/App.tsx'}:10) for state management
-• Package Configuration: Standard VS Code extension setup with OpenAI integration in [package.json](${packageFile || 'package.json'}:15)
-
-The architecture follows a typical VS Code extension pattern with a clean React-based interface defined in the [default export](${appFile || 'src/App.tsx'}:23).`;
-        }
-        else if (hasTypes) {
-            return `This appears to be a TypeScript project. The main files include:
-
-• TypeScript files with type definitions and interfaces
-• Configuration files for build and development
-• Source code organized in a structured manner
-
-The project uses TypeScript for type safety and modern JavaScript features.`;
-        }
-        else if (hasPackageJson) {
-            return `This is a Node.js project with package.json configuration. The project structure includes:
-
-• Package dependencies and scripts
-• Configuration files for various tools
-• Source code files
-
-The project follows standard Node.js conventions with package management through npm.`;
-        }
-        else {
-            return `This workspace contains various files and directories. The structure includes:
-
-• Multiple file types and formats
-• Organized directory structure
-• Configuration and source files
-
-The workspace appears to be a development project with mixed file types and purposes.`;
-        }
-    }
-    /**
-     * Generates an explanation response
-     * @param currentFile Currently open file
-     * @param workspaceFiles Available workspace files
-     * @returns Explanation response string
-     */
-    _generateExplanationResponse(currentFile, workspaceFiles) {
-        if (currentFile) {
-            return `Looking at the current file [${currentFile}](${currentFile}:1), this appears to be part of a larger project structure.
-
-The file is located in the workspace and contains code that contributes to the overall functionality. To provide a more detailed explanation, I would need to examine the specific content and context of this file.
-
-Would you like me to analyze a specific part of this file or explain how it relates to other components in the project?`;
-        }
-        else {
-            return `I can help explain various aspects of your codebase. To provide the most relevant explanation, please:
-
-1. Open a specific file you'd like me to explain
-2. Ask about a particular concept or pattern
-3. Request clarification on how different parts of your code work together
-
-What specific aspect would you like me to explain?`;
-        }
-    }
-    /**
-     * Generates a code generation response
-     * @param workspaceFiles Available workspace files
-     * @returns Code generation response string
-     */
-    _generateCodeGenerationResponse(workspaceFiles) {
-        const hasReact = workspaceFiles.some(f => f.includes('App.tsx') || f.includes('index.tsx'));
-        const hasComponents = workspaceFiles.some(f => f.includes('components/'));
-        if (hasReact && hasComponents) {
-            return `I can help you generate code for your React-based VS Code extension. Here are some common code generation tasks:
-
-• **New React Component**: Create a new component with proper TypeScript types
-• **VS Code Extension Command**: Add a new command to your extension
-• **Webview Integration**: Set up communication between extension and webview
-• **Configuration Settings**: Add extension configuration options
-
-What specific code would you like me to generate? For example:
-- "Generate a new React component called UserProfile"
-- "Create a VS Code command for file analysis"
-- "Add a configuration setting for API endpoints"`;
-        }
-        else {
-            return `I can help you generate code for your project. Based on your workspace structure, I can assist with:
-
-• **File Templates**: Create new files with proper structure
-• **Configuration Files**: Generate config files for various tools
-• **Code Snippets**: Create reusable code patterns
-• **Documentation**: Generate README files and documentation
-
-What type of code would you like me to generate? Please specify:
-- The type of file or component
-- The programming language or framework
-- Any specific requirements or patterns you need`;
-        }
-    }
-    /**
-     * Generates a general response
-     * @param message The user's message
-     * @param workspaceFiles Available workspace files
-     * @param currentFile Currently open file
-     * @returns General response string
-     */
-    _generateGeneralResponse(message, workspaceFiles, currentFile) {
-        return `I understand you're asking about "${message}". 
-
-I can help you with various tasks related to your codebase:
-
-• **Code Analysis**: Explain how your code works
-• **Repository Summary**: Provide an overview of your project structure
-• **Code Generation**: Create new files, components, or functions
-• **File Navigation**: Help you find and open specific files
-• **Debugging**: Assist with troubleshooting issues
-
-Your workspace contains ${workspaceFiles.length} files${currentFile ? `, and you're currently working on [${currentFile}](${currentFile}:1)` : ''}.
-
-How can I assist you further?`;
     }
     /**
      * Opens a file in the editor
@@ -492,10 +333,9 @@ How can I assist you further?`;
      * Calls the backend API with files and prompt
      * @param prompt The user's prompt
      * @param files Array of files with content
-     * @param currentFile Currently open file
      * @returns AI response from backend
      */
-    async _callBackendAPI(prompt, files, currentFile) {
+    async _callBackendAPI(prompt, files) {
         const backendUrl = vscode.workspace.getConfiguration('ai-chatbot').get('backendUrl', 'http://localhost:3001');
         const uploadUrl = `${backendUrl}/upload`;
         console.log(`[AI Chatbot] Calling backend API: ${uploadUrl}`);
@@ -528,22 +368,16 @@ How can I assist you further?`;
                             if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
                                 const responseData = JSON.parse(data);
                                 console.log(`[AI Chatbot] Backend response received:`, responseData.message);
-                                // Extract the mock response from the backend
-                                if (responseData.mockResponse) {
-                                    let response = responseData.mockResponse;
-                                    // Add directory tree information if available
-                                    if (responseData.directoryTree) {
-                                        console.log(`[AI Chatbot] Directory tree received with ${Object.keys(responseData.directoryTree).length} root items`);
-                                        // The directory tree is already included in the mockResponse, but we can add metadata
-                                        response += `\n\n📊 **Project Overview:**\n`;
-                                        response += `• Total files processed: ${responseData.metadata?.filesProcessed || 0}\n`;
-                                        response += `• Total characters: ${responseData.metadata?.totalCharacters || 0}\n`;
-                                        response += `• Analysis timestamp: ${responseData.metadata?.timestamp || 'unknown'}\n`;
-                                    }
-                                    resolve(response);
+                                if (responseData.error) {
+                                    reject(new Error(responseData.error));
+                                    return;
+                                }
+                                const aiResponse = responseData.aiResponse ?? responseData.message;
+                                if (typeof aiResponse === 'string' && aiResponse.trim().length > 0) {
+                                    resolve(aiResponse);
                                 }
                                 else {
-                                    resolve(responseData.message || 'Backend response received but no content available.');
+                                    reject(new Error('Backend response received but no AI content was provided.'));
                                 }
                             }
                             else {
