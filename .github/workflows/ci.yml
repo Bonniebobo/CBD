@@ -66,7 +66,6 @@ jobs:
       matrix:
         project:
           - ai-chatbot-extension
-          - test-mock-workspace
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

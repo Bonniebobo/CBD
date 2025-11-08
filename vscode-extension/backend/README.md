@@ -1,18 +1,21 @@
 # AI Code Assistant Backend
 
-A Node.js + Express backend API for the AI Code Assistant VS Code Extension. This backend receives project files and user prompts from the VS Code extension and provides AI-powered responses.
+A Node.js + Express backend API for the AI Code Assistant VS Code Extension. This backend receives project files and user prompts from the VS Code extension and provides AI-powered responses using Google's Gemini 2.5 Flash model.
+
+The backend analyzes your codebase structure, generates contextual AI responses, and provides clickable citations that link directly to specific code locations.
 
 ## Features
 
 - **File Upload Endpoint**: Accepts project files and user prompts via POST `/upload`
 - **Directory Tree Generation**: Creates hierarchical tree structure with file previews
-- **File Previews**: Shows first 3 lines of code for each file
-- **Gemini LLM Integration**: Real AI responses using Google's Gemini API
+- **File Previews**: Shows first 3 non-empty lines of code for each file
+- **Gemini 2.5 Flash Integration**: Real AI responses using Google's Gemini 2.5 Flash model
+- **Code Citations**: AI responses include clickable links to code locations
 - **CORS Support**: Configured for VS Code extension communication
 - **Request Logging**: Detailed console logging for debugging
 - **Large File Support**: Handles up to 10MB uploads
-- **Concurrent Users**: Supports up to 10 simultaneous users
-- **Health Check**: `/health` endpoint for monitoring
+- **Error Handling**: Comprehensive error handling with informative messages
+- **Health Check**: `/health` endpoint for monitoring with LLM status
 
 ## Quick Start
 
@@ -40,16 +43,10 @@ A Node.js + Express backend API for the AI Code Assistant VS Code Extension. Thi
    cp .env.example .env
    
    # Edit .env and add your Gemini API key
-   # Get your free API key from: https://makersuite.google.com/app/apikey
    GEMINI_API_KEY=your_gemini_api_key_here
    ```
 
-4. Test the backend:
-   ```bash
-   npm test
-   ```
-
-5. Start the server:
+4. Start the server:
    ```bash
    npm start
    ```
@@ -59,14 +56,31 @@ A Node.js + Express backend API for the AI Code Assistant VS Code Extension. Thi
    npm run dev
    ```
 
+5. Test the backend:
+   ```bash
+   npm test
+   
+   # Or run individual test suites
+   npm run test:citation      # Citation format tests
+   npm run test:backend       # Backend functionality tests
+   npm run test:integration   # Integration tests
+   npm run test:gemini        # Gemini API tests
+   ```
+
 ### Quick Deployment
 
 Run the deployment helper script:
 ```bash
+chmod +x deploy.sh
 ./deploy.sh
 ```
 
-This will check your environment, install dependencies, run tests, and provide deployment instructions.
+This script will:
+- Check your Node.js environment
+- Verify dependencies
+- Install missing packages
+- Run all tests
+- Provide deployment instructions and best practices
 
 ### Server Information
 
@@ -101,7 +115,7 @@ Accepts project files and user prompts for AI processing.
 ```json
 {
   "message": "Successfully processed 2 files.",
-  "aiResponse": "Real Gemini AI response here...",
+  "aiResponse": "This is a React application with TypeScript. The main component is located in [src/App.tsx](src/App.tsx:3) which exports a simple functional component...",
   "directoryTree": {
     "src": {
       "type": "directory",
@@ -110,7 +124,7 @@ Accepts project files and user prompts for AI processing.
           "type": "file",
           "size": 94,
           "extension": "tsx",
-          "preview": ["import React from \"react\";", "export default function App() {"],
+          "preview": ["import React from \"react\";", "export default function App() {", "return <div>Hello World</div>;"],
           "fullContent": "import React from \"react\";\n\nexport default function App() {\n  return <div>Hello World</div>;\n}"
         }
       }
@@ -123,9 +137,14 @@ Accepts project files and user prompts for AI processing.
       "fullContent": "{\n  \"name\": \"my-app\",\n  \"version\": \"1.0.0\"\n}"
     }
   },
+  "llmStatus": {
+    "geminiAvailable": true,
+    "geminiApiKey": true,
+    "service": "LLMService"
+  },
   "metadata": {
     "filesProcessed": 2,
-    "totalCharacters": 156,
+    "totalCharacters": 138,
     "timestamp": "2024-01-15T10:30:00.000Z"
   }
 }
@@ -145,6 +164,47 @@ Health check endpoint for monitoring.
 ```
 
 ## Testing
+
+### Automated Tests
+
+The backend includes comprehensive test suites:
+
+**Run all tests:**
+```bash
+npm test
+```
+
+This runs all 4 test suites in sequence:
+1. Citation format tests
+2. Backend functionality tests  
+3. Integration tests
+4. Gemini API tests
+
+**Run individual test suites:**
+
+1. **Citation Tests** (`test-citation.js`):
+   ```bash
+   npm run test:citation
+   ```
+   Tests citation format conversion for linking to code locations.
+
+2. **Backend Tests** (`test-backend.js`):
+   ```bash
+   npm run test:backend
+   ```
+   Tests core backend functionality including directory tree generation.
+
+3. **Integration Tests** (`test-integration.js`):
+   ```bash
+   npm run test:integration
+   ```
+   Tests the full API endpoints and request/response handling.
+
+4. **Gemini Tests** (`test-gemini.js`):
+   ```bash
+   npm run test:gemini
+   ```
+   Tests Gemini API integration with real API calls (requires `GEMINI_API_KEY`).
 
 ### Manual Testing with curl
 
@@ -184,10 +244,12 @@ The backend generates a hierarchical directory tree for all uploaded files:
 - **Files**: Represented with `type: "file"` and file metadata
 
 ### File Metadata
+- **type**: Either "file" or "directory"
 - **size**: Character count of file content
 - **extension**: File extension (e.g., "tsx", "json", "js")
-- **preview**: First 3 non-empty lines of code
+- **preview**: First 3 non-empty lines of code (trimmed)
 - **fullContent**: Complete file content
+- **children**: For directories, contains nested structure
 
 ### Example Tree Structure
 ```json
@@ -199,8 +261,20 @@ The backend generates a hierarchical directory tree for all uploaded files:
         "type": "file",
         "size": 94,
         "extension": "tsx",
-        "preview": ["import React from \"react\";", "export default function App() {"],
+        "preview": ["import React from \"react\";", "export default function App() {", "return <div>Hello World</div>;"],
         "fullContent": "import React from \"react\";\n\nexport default function App() {\n  return <div>Hello World</div>;\n}"
+      },
+      "utils": {
+        "type": "directory",
+        "children": {
+          "helper.ts": {
+            "type": "file",
+            "size": 50,
+            "extension": "ts",
+            "preview": ["export function helper() {", "return true;", "}"],
+            "fullContent": "export function helper() {\n  return true;\n}"
+          }
+        }
       }
     }
   }
@@ -299,105 +373,8 @@ app.use(cors({
    - Click "Create Web Service"
    - Render will automatically deploy
 
-### Heroku
-
-1. **Install Heroku CLI:**
-   ```bash
-   npm install -g heroku
-   ```
-
-2. **Login and Create App:**
-   ```bash
-   heroku login
-   heroku create your-app-name
-   ```
-
-3. **Deploy:**
-   ```bash
-   git push heroku main
-   ```
 
 ## Development
-
-### Project Structure
-
-```
-backend/
-├── index.js          # Main server file
-├── package.json      # Dependencies and scripts
-├── README.md         # This file
-└── node_modules/     # Dependencies (after npm install)
-```
-
-### Gemini LLM Integration
-
-The backend now includes real Gemini LLM integration! Here's how it works:
-
-### Setup
-
-1. **Get a Gemini API Key** (free):
-   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Sign in with your Google account
-   - Create a new API key
-   - Copy the API key
-
-2. **Configure the Backend**:
-   ```bash
-   # Copy the example environment file
-   cp env.example .env
-   
-   # Add your API key to .env
-   GEMINI_API_KEY=your_actual_api_key_here
-   ```
-
-3. **Restart the Backend**:
-   ```bash
-   npm start
-   ```
-
-### How It Works
-
-- **With API Key**: Uses real Gemini AI responses
-- **Without API Key**: Requests are rejected until the key is configured
-- **Status Monitoring**: Check `/health` endpoint for LLM status
-
-### Response Format
-
-The response includes LLM status information:
-
-```json
-{
-  "message": "Successfully processed 2 files.",
-  "aiResponse": "Real Gemini AI response here...",
-  "directoryTree": { ... },
-  "llmStatus": {
-    "geminiAvailable": true,
-    "geminiApiKey": true,
-    "service": "LLMService"
-  },
-  "metadata": { ... }
-}
-```
-
-### Health Check
-
-Check if Gemini is available:
-
-```bash
-curl http://localhost:3001/health
-```
-
-Response includes LLM status:
-```json
-{
-  "status": "healthy",
-  "llmStatus": {
-    "geminiAvailable": true,
-    "geminiApiKey": true,
-    "service": "LLMService"
-  }
-}
-```
 
 ## Troubleshooting
 

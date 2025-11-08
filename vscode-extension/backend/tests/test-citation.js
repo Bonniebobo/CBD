@@ -6,6 +6,9 @@
  * Verifies that Gemini responses (when available) include references to key files.
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const assert = require('assert');
 const LLMService = require('../services/llmService');
 
