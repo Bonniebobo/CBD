@@ -13,6 +13,16 @@ module.exports = {
         ecmaVersion: 'latest',
         sourceType: 'module',
     },
+    ignorePatterns: [
+        'node_modules/',
+        'out/',
+        'dist/',
+        'build/',
+        'coverage/',
+        '*.log',
+        '*.min.js',
+        '*.map',
+    ],
     rules: {
         'no-console': 'off', // Console.log is useful for backend logging
         'no-unused-vars': ['warn', {

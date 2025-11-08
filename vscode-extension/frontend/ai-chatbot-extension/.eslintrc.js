@@ -14,6 +14,16 @@ module.exports = {
         'plugin:@typescript-eslint/recommended',
     ],
     plugins: ['@typescript-eslint'],
+    ignorePatterns: [
+        'node_modules/',
+        'out/',
+        'dist/',
+        'build/',
+        'coverage/',
+        '*.log',
+        '*.min.js',
+        '*.map',
+    ],
     rules: {
         '@typescript-eslint/explicit-function-return-type': 'off',
         '@typescript-eslint/explicit-module-boundary-types': 'off',
