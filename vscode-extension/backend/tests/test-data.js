@@ -1,6 +1,6 @@
 /**
  * Shared test data for backend tests
- * 
+ *
  * Mock workspace files used across different test suites
  */
 

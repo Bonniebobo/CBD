@@ -2,14 +2,14 @@
 
 /**
  * API Integration Tests
- * 
+ *
  * Tests the backend HTTP endpoints including:
  * - Health check endpoint
  * - Upload endpoint with various prompts
  * - Error handling (missing files, missing prompt)
  * - 404 handling
  * - Backend-frontend integration simulation
- * 
+ *
  * Note: Requires the backend server to be running on port 3001
  */
 
@@ -194,21 +194,21 @@ async function testUploadEndpoint(prompt, files) {
             console.log('✅ Upload test passed');
             console.log(`   Files processed: ${result.data.metadata.filesProcessed}`);
             console.log(`   Total characters: ${result.data.metadata.totalCharacters}`);
-            
+
             if (typeof result.data.aiResponse === 'string') {
                 console.log(`   AI response: ${result.data.aiResponse.substring(0, 80)}...`);
             }
-            
+
             // Check for directory tree
             if (result.data.directoryTree) {
-                console.log(`   Directory tree: ✅ Present`);
+                console.log('   Directory tree: ✅ Present');
             }
-            
+
             // Check for LLM status
             if (result.data.llmStatus) {
-                console.log(`   LLM status: ✅ Present`);
+                console.log('   LLM status: ✅ Present');
             }
-            
+
             return true;
         } else {
             console.log('❌ Upload test failed');
@@ -316,7 +316,7 @@ async function test404Endpoint() {
  */
 async function testExtensionIntegration() {
     console.log('🔗 Testing VS Code extension integration...');
-    
+
     let passed = 0;
     const testSet = testPrompts.slice(0, 2); // Test first 2 prompts
 
