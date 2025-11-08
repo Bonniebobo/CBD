@@ -34,7 +34,7 @@ export default function App() {
       </div>
     </div>
   );
-}`
+}`,
         },
         {
             filename: 'package.json',
@@ -47,7 +47,7 @@ export default function App() {
     "build": "tsc && vite build",
     "preview": "vite preview"
   }
-}`
+}`,
         },
         {
             filename: 'src/components/ChatInterface.tsx',
@@ -66,8 +66,8 @@ export function ChatInterface({ selectedFile, onFileSelect }: ChatInterfaceProps
   const [input, setInput] = useState('');
 
   return null;
-}`
-        }
+}`,
+        },
     ];
 }
 

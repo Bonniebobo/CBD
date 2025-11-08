@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 /**
  * LLM Service for AI Code Assistant Backend
- * 
+ *
  * Handles communication with the Gemini model.
  * Requires a valid API key and surfaces errors when the service is unavailable.
  */
@@ -16,7 +16,7 @@ class LLMService {
         if (this.geminiApiKey) {
             try {
                 const genAI = new GoogleGenerativeAI(this.geminiApiKey);
-                this.geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                this.geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
                 console.log('✅ Gemini LLM initialized successfully');
             } catch (error) {
                 console.error('❌ Failed to initialize Gemini LLM:', error.message);
@@ -91,7 +91,7 @@ Please analyze the provided codebase and respond to the user's question. Include
         try {
             const result = await this.geminiModel.generateContent([
                 systemPrompt,
-                userPrompt
+                userPrompt,
             ]);
 
             const response = await result.response;
@@ -136,7 +136,7 @@ ${preview}${lines.length > 10 ? '\n...' : ''}
         const tree = {};
 
         files.forEach(file => {
-            if (!file.filename) return;
+            if (!file.filename) {return;}
 
             const pathParts = file.filename.split('/');
             let current = tree;
@@ -157,14 +157,14 @@ ${preview}${lines.length > 10 ? '\n...' : ''}
                         size: content.length,
                         extension: part.split('.').pop() || 'unknown',
                         preview: firstThreeLines,
-                        fullContent: content
+                        fullContent: content,
                     };
                 } else {
                     // This is a directory
                     if (!current[part]) {
                         current[part] = {
                             type: 'directory',
-                            children: {}
+                            children: {},
                         };
                     }
                     current = current[part].children;
@@ -216,7 +216,7 @@ ${preview}${lines.length > 10 ? '\n...' : ''}
         return {
             geminiAvailable: this.isGeminiAvailable(),
             geminiApiKey: !!this.geminiApiKey,
-            service: 'LLMService'
+            service: 'LLMService',
         };
     }
 

@@ -1,4 +1,5 @@
 module.exports = {
+    root: true,
     env: {
         node: true,
         es2022: true,
@@ -14,7 +15,7 @@ module.exports = {
     },
     rules: {
         'no-console': 'off', // Console.log is useful for backend logging
-        'no-unused-vars': ['warn', { 
+        'no-unused-vars': ['warn', {
             argsIgnorePattern: '^_',
             varsIgnorePattern: '^_',
         }],

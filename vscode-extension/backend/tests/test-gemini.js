@@ -2,7 +2,7 @@
 
 /**
  * Test script for Gemini LLM integration
- * 
+ *
  * This script tests the Gemini API integration with a real API key.
  * Run this after setting up your GEMINI_API_KEY environment variable.
  */
@@ -34,7 +34,7 @@ export default function App() {
       </div>
     </div>
   );
-}`
+}`,
     },
     {
         filename: 'package.json',
@@ -59,24 +59,24 @@ export default function App() {
     "typescript": "^5.0.2",
     "vite": "^4.4.5"
   }
-}`
-    }
+}`,
+    },
 ];
 
 const testPrompts = [
     'Summarize this React application',
     'What are the main components?',
     'How can I improve this code?',
-    'Generate a new user authentication component'
+    'Generate a new user authentication component',
 ];
 
 async function testGeminiIntegration() {
     console.log('🧪 Testing Gemini LLM Integration');
     console.log('=' .repeat(50));
-    
+
     // Initialize LLM service
     const llmService = new LLMService();
-    
+
     // Check service status
     const status = llmService.getStatus();
     console.log('📊 LLM Service Status:');
@@ -84,7 +84,7 @@ async function testGeminiIntegration() {
     console.log(`   API Key Present: ${status.geminiApiKey}`);
     console.log(`   Service: ${status.service}`);
     console.log('');
-    
+
     if (!status.geminiAvailable) {
         console.log('⚠️  Gemini API key not found or invalid.');
         console.log('   These tests require a live Gemini configuration.');
@@ -97,34 +97,34 @@ async function testGeminiIntegration() {
     }
 
     console.log('✅ Gemini API is available! Testing real AI responses...');
-    
+
     let passed = 0;
     let total = 0;
-    
+
     for (const prompt of testPrompts) {
         total++;
         console.log(`\n📤 Testing prompt: "${prompt}"`);
-        
+
         try {
             const startTime = Date.now();
             const response = await llmService.generateResponse(prompt, testFiles, 'src/App.tsx');
             const endTime = Date.now();
             const duration = endTime - startTime;
-            
+
             console.log('✅ Response generated successfully');
             console.log(`   Duration: ${duration}ms`);
             console.log(`   Response length: ${response.length} characters`);
             console.log(`   Response preview: ${response.substring(0, 100)}...`);
-            
+
             passed++;
         } catch (error) {
             console.log('❌ Request failed with error:', error.message);
         }
     }
-    
+
     console.log('\n' + '=' .repeat(50));
     console.log(`📊 Test Results: ${passed}/${total} tests passed`);
-    
+
     if (passed === total) {
         console.log('🎉 All Gemini integration tests passed!');
         console.log('✨ Your backend is now using real AI responses!');
@@ -132,7 +132,7 @@ async function testGeminiIntegration() {
         console.log('⚠️  Some tests failed.');
         console.log('   Check the error messages above for details.');
     }
-    
+
     console.log('\n📝 Next steps:');
     console.log('   1. Test the VS Code extension integration');
     console.log('   2. Send real prompts from the extension');
@@ -145,5 +145,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-    testGeminiIntegration
+    testGeminiIntegration,
 };

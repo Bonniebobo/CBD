@@ -2,7 +2,7 @@
 
 /**
  * Integration Test Script for VS Code Extension + Backend
- * 
+ *
  * This script simulates the VS Code extension calling the backend
  * to verify the integration works correctly.
  */
@@ -35,7 +35,7 @@ export default function App() {
       </div>
     </div>
   );
-}`
+}`,
     },
     {
         filename: 'package.json',
@@ -60,7 +60,7 @@ export default function App() {
     "typescript": "^5.0.2",
     "vite": "^4.4.5"
   }
-}`
+}`,
     },
     {
         filename: 'src/components/ChatInterface.tsx',
@@ -149,8 +149,8 @@ export function ChatInterface({ selectedFile, onFileSelect }: ChatInterfaceProps
       </div>
     </div>
   );
-}`
-    }
+}`,
+    },
 ];
 
 // Test prompts that the VS Code extension might send
@@ -159,7 +159,7 @@ const testPrompts = [
     'Explain the component structure',
     'What are the main dependencies?',
     'How can I improve this code?',
-    'Generate a new authentication component'
+    'Generate a new authentication component',
 ];
 
 // HTTP request helper (similar to VS Code extension)
@@ -176,12 +176,12 @@ function makeHttpRequest(url, data) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(postData)
-                }
+                    'Content-Length': Buffer.byteLength(postData),
+                },
             };
 
             const client = urlObj.protocol === 'https:' ? https : http;
-            
+
             const req = client.request(options, (res) => {
                 let responseData = '';
 
@@ -219,26 +219,26 @@ function makeHttpRequest(url, data) {
 async function testExtensionBackendIntegration() {
     console.log('🧪 Testing VS Code Extension + Backend Integration');
     console.log('=' .repeat(60));
-    
+
     let passed = 0;
     let total = 0;
-    
+
     for (const prompt of testPrompts) {
         total++;
         console.log(`\n📤 Testing prompt: "${prompt}"`);
-        
+
         try {
             const result = await makeHttpRequest(`${BACKEND_URL}/upload`, {
                 files: mockWorkspaceFiles,
-                prompt: prompt
+                prompt: prompt,
             });
-            
+
             if (result.success && typeof result.data.aiResponse === 'string') {
                 console.log('✅ Request successful');
                 console.log(`   Files sent: ${mockWorkspaceFiles.length}`);
                 console.log(`   Response: ${result.data.aiResponse.substring(0, 100)}...`);
                 console.log(`   Metadata: ${result.data.metadata.filesProcessed} files processed`);
-                
+
                 // Check for directory tree
                 if (result.data.directoryTree) {
                     console.log(`   Directory tree: ${Object.keys(result.data.directoryTree).length} root items`);
@@ -246,7 +246,7 @@ async function testExtensionBackendIntegration() {
                 } else {
                     console.log('   ⚠️  No directory tree in response');
                 }
-                
+
                 passed++;
             } else {
                 console.log('❌ Request failed - invalid response format');
@@ -256,10 +256,10 @@ async function testExtensionBackendIntegration() {
             console.log('❌ Request failed with error:', error.message);
         }
     }
-    
+
     console.log('\n' + '=' .repeat(60));
     console.log(`📊 Integration Test Results: ${passed}/${total} tests passed`);
-    
+
     if (passed === total) {
         console.log('🎉 All integration tests passed!');
         console.log('\n✨ Your VS Code extension is ready to use with the backend!');
@@ -281,12 +281,12 @@ async function checkBackendHealth() {
     return new Promise((resolve) => {
         const url = new URL(`${BACKEND_URL}/health`);
         const client = url.protocol === 'https:' ? https : http;
-        
+
         const req = client.request({
             hostname: url.hostname,
             port: url.port || (url.protocol === 'https:' ? 443 : 80),
             path: url.pathname,
-            method: 'GET'
+            method: 'GET',
         }, (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
@@ -299,7 +299,7 @@ async function checkBackendHealth() {
                 }
             });
         });
-        
+
         req.on('error', () => resolve(false));
         req.end();
     });
@@ -309,14 +309,14 @@ async function checkBackendHealth() {
 async function main() {
     console.log('🔍 Checking backend health...');
     const isHealthy = await checkBackendHealth();
-    
+
     if (!isHealthy) {
         console.log('❌ Backend is not running or not healthy');
         console.log('   Please start the backend first:');
         console.log('   cd backend && npm start');
         process.exit(1);
     }
-    
+
     console.log('✅ Backend is healthy and running');
     await testExtensionBackendIntegration();
 }
@@ -328,5 +328,5 @@ if (require.main === module) {
 module.exports = {
     testExtensionBackendIntegration,
     checkBackendHealth,
-    makeHttpRequest
+    makeHttpRequest,
 };
