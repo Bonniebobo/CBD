@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import {CONFIG} from './config';
-import {ChatMessage} from './types';
+import { CONFIG } from './config';
+import { ChatMessage } from './types';
 
 export class ChatStateStore {
     constructor(

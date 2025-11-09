@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {WorkspaceFile} from './types';
+import { WorkspaceFile } from './types';
 
 const TEXT_EXTENSIONS = [
     '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.txt', '.css', '.scss', '.html', '.xml', '.yaml', '.yml',

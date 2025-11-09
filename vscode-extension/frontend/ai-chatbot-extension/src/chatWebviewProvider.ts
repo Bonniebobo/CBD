@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import {CONFIG, getLocalResourceRoots} from './config';
+import { CONFIG, getLocalResourceRoots } from './config';
 import {
     ChatMessage,
     ExtensionToWebviewMessage,
@@ -9,8 +9,8 @@ import {
     WorkspaceFile,
     assertUnreachable,
 } from './types';
-import {createChatStateStore, ChatStateStore} from './stateStore';
-import {callBackendAPI} from './backendClient';
+import { createChatStateStore, ChatStateStore } from './stateStore';
+import { callBackendAPI } from './backendClient';
 import {
     getActiveEditorPath,
     getWorkspaceFiles,
@@ -89,7 +89,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
             if (initialMessage) {
                 this._sendMessageToWebview({
                     type: MESSAGE_TYPES.INITIAL_MESSAGE,
-                    payload: {message: initialMessage},
+                    payload: { message: initialMessage },
                 });
             }
             return true;
@@ -128,7 +128,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
         if (initialMessage) {
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.INITIAL_MESSAGE,
-                payload: {message: initialMessage},
+                payload: { message: initialMessage },
             });
         }
 
@@ -216,7 +216,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
             // Show loading state
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
-                payload: {response: '🤖 Analyzing your codebase... Please wait.'},
+                payload: { response: '🤖 Analyzing your codebase... Please wait.' },
             });
 
             // Get workspace context with file contents
@@ -227,7 +227,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
 
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
-                payload: {response},
+                payload: { response },
             });
         } catch (error) {
             console.error('[AI Chatbot] Error handling user message:', error);
@@ -235,7 +235,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.AI_RESPONSE,
-                payload: {response: `⚠️ Failed to contact the Gemini backend: ${errorMessage}`},
+                payload: { response: `⚠️ Failed to contact the Gemini backend: ${errorMessage}` },
             });
         }
     }
@@ -281,12 +281,6 @@ export class ChatWebviewProvider implements vscode.Disposable {
      * @returns true if the file is likely a text file
      */
     private _isTextFile(filename: string): boolean {
-        const textExtensions = [
-            '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.txt', '.css', '.scss', '.html', '.xml', '.yaml', '.yml',
-            '.py', '.java', '.cpp', '.c', '.h', '.hpp', '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala',
-            '.vue', '.svelte', '.astro', '.config', '.env', '.gitignore', '.dockerfile', '.dockerignore',
-        ];
-
         return isTextFile(filename);
     }
 
@@ -322,7 +316,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
         this._getWorkspaceFiles().then(files => {
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.WORKSPACE_FILES,
-                payload: {files},
+                payload: { files },
             });
         }).catch(error => console.error('[AI Chatbot] Failed to gather workspace files for webview:', error));
     }
@@ -334,7 +328,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
         const currentFile = this._getCurrentFile();
         this._sendMessageToWebview({
             type: MESSAGE_TYPES.CURRENT_FILE,
-            payload: {file: currentFile},
+            payload: { file: currentFile },
         });
     }
 
@@ -358,7 +352,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
         if (chatHistory.length > 0) {
             this._sendMessageToWebview({
                 type: MESSAGE_TYPES.LOAD_CHAT_HISTORY,
-                payload: {messages: chatHistory},
+                payload: { messages: chatHistory },
             });
         }
     }

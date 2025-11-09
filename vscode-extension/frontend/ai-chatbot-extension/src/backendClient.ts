@@ -1,12 +1,12 @@
 import * as http from 'http';
 import * as https from 'https';
-import {URL} from 'url';
-import {WorkspaceFile} from './types';
+import { URL } from 'url';
+import { WorkspaceFile } from './types';
 
 export async function callBackendAPI(prompt: string, files: WorkspaceFile[], backendUrl: string): Promise<string> {
     const endpoint = new URL('/upload', backendUrl.endsWith('/') ? backendUrl : `${backendUrl}/`);
     const client = endpoint.protocol === 'https:' ? https : http;
-    const postData = JSON.stringify({files, prompt});
+    const postData = JSON.stringify({ files, prompt });
 
     return new Promise((resolve, reject) => {
         const options: https.RequestOptions = {
