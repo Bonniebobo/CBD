@@ -95,7 +95,6 @@ Each function below maps to test IDs in the test table (e.g., Function 1 → Tes
 - Use `delete process.env.GEMINI_API_KEY` to test missing key scenario
 
 ### Test Data:
-- Import from `tests/test-data.js` for consistent mock files
 - Use simple inline fixtures for edge cases
 
 ### Execution:
@@ -114,7 +113,7 @@ npm run test:unit
 
 ## Total Unit Tests: 44
 
-**Note**: Tests 1.4 & 1.5 (constructor error/success with GoogleGenerativeAI) have been **moved to integration tests**:
+**Note**: Tests (constructor error/success with GoogleGenerativeAI) have been **implemented in integration tests**:
 - See `test_spec_llm-integration.md` tests 1.1-1.2
 - Reason: Cannot be unit tested with mocks (would require file-level `jest.mock()`)
 - These tests require real API keys and are better suited for integration testing

@@ -329,14 +329,6 @@ describeIfApiKey('LLM Integration Tests (Real Gemini API)', () => {
     });
 });
 
-/**
- * Test Summary:
- * - Total: 8 tests (7 active + many skipped)
- * - API calls: ~7 requests (within free tier limit of 10/minute)
- * - Skipped tests conserve API quota and avoid rate limiting
- * - Core LLM functionality is still validated
- */
-
 // Export for potential use in other tests
 module.exports = {
     HAS_API_KEY,

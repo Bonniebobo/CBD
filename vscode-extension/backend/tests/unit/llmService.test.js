@@ -474,7 +474,7 @@ describe('LLMService', () => {
             try {
                 await service.generateResponse('test', []);
             } catch {
-                // Expected error
+                // Expected error catch(e) {}
             }
 
             expect(consoleSpy).toHaveBeenCalledWith(
