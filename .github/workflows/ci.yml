@@ -54,7 +54,7 @@ jobs:
             exit 1
           fi
 
-          npm run test:api
+          npm run test:integration
 
   frontend-lint:
     name: Frontend ESLint Checks

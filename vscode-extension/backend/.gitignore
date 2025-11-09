@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Coverage reports
+coverage/
+
+# Jest cache
+.jest/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+

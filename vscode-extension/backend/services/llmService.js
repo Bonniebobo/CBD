@@ -9,7 +9,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class LLMService {
     constructor() {
-        this.geminiApiKey = process.env.GEMINI_API_KEY;
+        this.geminiApiKey = process.env.GEMINI_API_KEY || null;
         this.geminiModel = null;
 
         // Initialize Gemini if API key is available
@@ -150,7 +150,9 @@ ${preview}${lines.length > 10 ? '\n...' : ''}
                     // This is a file
                     const content = file.content || '';
                     const lines = content.split('\n');
-                    const firstThreeLines = lines.slice(0, 3).map(line => line.trim()).filter(line => line.length > 0);
+                    // Get first 3 non-empty lines (filter first, then take 3)
+                    const nonEmptyLines = lines.map(line => line.trim()).filter(line => line.length > 0);
+                    const firstThreeLines = nonEmptyLines.slice(0, 3);
 
                     current[part] = {
                         type: 'file',

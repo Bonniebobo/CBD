@@ -1,7 +1,7 @@
 /**
- * Shared test data for backend tests
+ * Shared Test Data for Integration and Unit Tests
  *
- * Mock workspace files used across different test suites
+ * Contains mock files and prompts used across test suites.
  */
 
 const mockFiles = [
@@ -65,7 +65,7 @@ interface Message {
 }
 
 export function ChatInterface({ selectedFile, onFileSelect }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [currentFile, setCurrentFile] = useState<string | undefined>(selectedFile);
@@ -143,16 +143,21 @@ export function ChatInterface({ selectedFile, onFileSelect }: ChatInterfaceProps
     },
 ];
 
-const testPrompts = [
+const mockPrompts = [
     'Summarize this repository',
     'Explain how the React components work',
+    'Generate a new user authentication component',
     'What are the main dependencies in this project?',
     'How can I improve the code structure?',
-    'Generate a new user authentication component',
+    'What does this code do?',
+    'Is there a bug in this file?',
+    'Refactor this component to use hooks',
+    'Add TypeScript types to this file',
+    'Optimize the performance of this code',
 ];
 
 module.exports = {
     mockFiles,
-    testPrompts,
+    mockPrompts,
 };
 

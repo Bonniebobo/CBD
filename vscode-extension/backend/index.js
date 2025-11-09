@@ -117,26 +117,29 @@ app.use('*', (req, res) => {
     });
 });
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`🚀 AI Code Assistant Backend running on port ${PORT}`);
-    console.log(`📡 Health check: http://localhost:${PORT}/health`);
-    console.log(`📤 Upload endpoint: http://localhost:${PORT}/upload`);
-    console.log('🌐 CORS enabled for all origins');
-    console.log('📦 Max body size: 10MB');
-    console.log('👥 Supports up to 10 concurrent users');
-    console.log('\n=== Server Ready ===\n');
-});
+// Only start server if not in test mode
+if (require.main === module) {
+    // Start server
+    app.listen(PORT, () => {
+        console.log(`🚀 AI Code Assistant Backend running on port ${PORT}`);
+        console.log(`📡 Health check: http://localhost:${PORT}/health`);
+        console.log(`📤 Upload endpoint: http://localhost:${PORT}/upload`);
+        console.log('🌐 CORS enabled for all origins');
+        console.log('📦 Max body size: 10MB');
+        console.log('👥 Supports up to 10 concurrent users');
+        console.log('\n=== Server Ready ===\n');
+    });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    process.exit(0);
-});
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+        console.log('SIGTERM received, shutting down gracefully');
+        process.exit(0);
+    });
 
-process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
-    process.exit(0);
-});
+    process.on('SIGINT', () => {
+        console.log('SIGINT received, shutting down gracefully');
+        process.exit(0);
+    });
+}
 
 module.exports = app;
