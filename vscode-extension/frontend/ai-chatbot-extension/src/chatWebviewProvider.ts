@@ -199,7 +199,7 @@ export class ChatWebviewProvider implements vscode.Disposable {
                 this._loadChatHistory();
                 break;
             default:
-                assertUnreachable(message.type);
+                assertUnreachable(message);
         }
     }
 

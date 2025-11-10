@@ -48,20 +48,20 @@ export interface ExtensionToWebviewPayloadMap {
     [MESSAGE_TYPES.INITIAL_MESSAGE]: {message: string};
 }
 
-export type WebviewToExtensionMessage<
-    T extends keyof WebviewToExtensionPayloadMap = keyof WebviewToExtensionPayloadMap
-> = {
-    type: T;
-    payload: WebviewToExtensionPayloadMap[T];
-};
+export type WebviewToExtensionMessage = {
+    [K in keyof WebviewToExtensionPayloadMap]: {
+        type: K;
+        payload: WebviewToExtensionPayloadMap[K];
+    }
+}[keyof WebviewToExtensionPayloadMap];
 
-export type ExtensionToWebviewMessage<
-    T extends keyof ExtensionToWebviewPayloadMap = keyof ExtensionToWebviewPayloadMap
-> = {
-    type: T;
-    payload: ExtensionToWebviewPayloadMap[T];
-};
+export type ExtensionToWebviewMessage = {
+    [K in keyof ExtensionToWebviewPayloadMap]: {
+        type: K;
+        payload: ExtensionToWebviewPayloadMap[K];
+    }
+}[keyof ExtensionToWebviewPayloadMap];
 
-export function assertUnreachable(value: never): never {
-    throw new Error(`Unhandled message type: ${value}`);
+export function assertUnreachable(_value: never): never {
+    throw new Error('Unhandled message type');
 }
