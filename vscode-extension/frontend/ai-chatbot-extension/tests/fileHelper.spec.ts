@@ -298,6 +298,60 @@ describe('fileHelpers', () => {
         });
     });
 
+    describe('getWorkspaceFiles', () => {
+        function uri(pathValue: string) {
+            return { fsPath: pathValue, path: pathValue };
+        }
+
+        it('converts URIs to relative paths in a single workspace', async () => {
+            const folder = { uri: { fsPath: '/ws1', path: '/ws1' } };
+            vscodeStub.workspace.workspaceFolders = [folder];
+            const filesInFolder = [uri('/ws1/src/index.ts'), uri('/ws1/README.md')];
+            vscodeStub.workspace.findFiles.resolves(filesInFolder);
+            vscodeStub.workspace.asRelativePath.callsFake((resource: {path: string}) =>
+                resource.path.replace('/ws1/', ''),
+            );
+
+            const files = await fileHelpers.getWorkspaceFiles();
+
+            expect(vscodeStub.workspace.findFiles.calledOnce).to.be.true;
+            expect(vscodeStub.workspace.asRelativePath.callCount).to.equal(2);
+            expect(files).to.deep.equal(['src/index.ts', 'README.md']);
+        });
+
+        it('respects the provided limit even with more URIs', async () => {
+            const folder = { uri: { fsPath: '/ws1', path: '/ws1' } };
+            vscodeStub.workspace.workspaceFolders = [folder];
+            const fiveUris = Array.from({ length: 5 }, (_, i) => uri(`/ws1/file${i}.ts`));
+            vscodeStub.workspace.findFiles.resolves(fiveUris);
+            vscodeStub.workspace.asRelativePath.callsFake((resource: {path: string}) =>
+                resource.path.replace('/ws1/', ''),
+            );
+
+            const files = await fileHelpers.getWorkspaceFiles(2);
+
+            expect(files).to.deep.equal(['file0.ts', 'file1.ts']);
+            expect(vscodeStub.workspace.asRelativePath.callCount).to.equal(2);
+        });
+
+        it('iterates multiple folders and merges results', async () => {
+            const ws1 = { uri: { fsPath: '/ws1', path: '/ws1' } };
+            const ws2 = { uri: { fsPath: '/ws2', path: '/ws2' } };
+            vscodeStub.workspace.workspaceFolders = [ws1, ws2];
+
+            vscodeStub.workspace.findFiles.onCall(0).resolves([uri('/ws1/a.ts')]);
+            vscodeStub.workspace.findFiles.onCall(1).resolves([uri('/ws2/b.ts'), uri('/ws2/c.ts')]);
+            vscodeStub.workspace.asRelativePath.callsFake((resource: {path: string}) =>
+                resource.path.replace('/ws1/', '').replace('/ws2/', ''),
+            );
+
+            const files = await fileHelpers.getWorkspaceFiles();
+
+            expect(vscodeStub.workspace.findFiles.calledTwice).to.be.true;
+            expect(files).to.deep.equal(['a.ts', 'b.ts', 'c.ts']);
+        });
+    });
+
     describe('getActiveEditorPath', () => {
         it('returns relative path of active editor', () => {
             const editorUri = { fsPath: '/x/y.ts', path: '/x/y.ts' };
@@ -321,6 +375,10 @@ describe('fileHelpers', () => {
     });
 
     describe('openFileInEditor', () => {
+        function createUri(pathValue: string) {
+            return { fsPath: pathValue, path: pathValue };
+        }
+
         it('opens a document and shows it when no workspace match exists', async () => {
             vscodeStub.workspace.workspaceFolders = undefined;
 
@@ -344,6 +402,60 @@ describe('fileHelpers', () => {
             expect(lastShownEditor?.revealRange.calledOnce).to.be.true;
             const rangeArg = lastShownEditor?.revealRange.getCall(0).args[0] as {start: {line: number}};
             expect(rangeArg.start.line).to.equal(41);
+        });
+
+        it('prefers workspace matches and opens absolute path first', async () => {
+            const workspaceFolder = { uri: { fsPath: '/ws', path: '/ws' } };
+            vscodeStub.workspace.workspaceFolders = [workspaceFolder];
+            const absUri = { fsPath: '/ws/src/foo.ts', path: '/ws/src/foo.ts' };
+            const fileUri = createUri('/ws/src/foo.ts');
+            vscodeStub.workspace.findFiles.resolves([fileUri]);
+            vscodeStub.workspace.asRelativePath.callsFake((uri: {path: string}) => uri.path.replace('/ws/', ''));
+            vscodeStub.Uri.joinPath.withArgs(workspaceFolder.uri, 'src/foo.ts').returns(absUri);
+
+            await fileHelpers.openFileInEditor('foo.ts', undefined, vscodeStub.ViewColumn.One);
+
+            expect(vscodeStub.workspace.openTextDocument.callCount).to.equal(1);
+            expect(vscodeStub.workspace.openTextDocument.firstCall.calledWithExactly(absUri)).to.be.true;
+            expect(vscodeStub.window.showTextDocument.calledOnce).to.be.true;
+        });
+
+        it('falls back to direct open when absolute path load fails', async () => {
+            const workspaceFolder = { uri: { fsPath: '/ws', path: '/ws' } };
+            vscodeStub.workspace.workspaceFolders = [workspaceFolder];
+            const absUri = { fsPath: '/ws/src/foo.ts', path: '/ws/src/foo.ts' };
+            const fileUri = createUri('/ws/src/foo.ts');
+            vscodeStub.workspace.findFiles.resolves([fileUri]);
+            vscodeStub.workspace.asRelativePath.callsFake((uri: {path: string}) => uri.path.replace('/ws/', ''));
+            vscodeStub.Uri.joinPath.withArgs(workspaceFolder.uri, 'src/foo.ts').returns(absUri);
+
+            const error = new Error('fail');
+            vscodeStub.workspace.openTextDocument.onFirstCall().rejects(error);
+            vscodeStub.workspace.openTextDocument.onSecondCall().resolves({ uri: { fsPath: 'foo.ts', path: 'foo.ts' } });
+
+            await fileHelpers.openFileInEditor('foo.ts', undefined, vscodeStub.ViewColumn.One);
+
+            expect(vscodeStub.workspace.openTextDocument.calledTwice).to.be.true;
+            expect(vscodeStub.workspace.openTextDocument.firstCall.calledWithExactly(absUri)).to.be.true;
+            expect(vscodeStub.workspace.openTextDocument.secondCall.calledWithExactly('foo.ts')).to.be.true;
+            expect(vscodeStub.window.showTextDocument.calledOnce).to.be.true;
+        });
+
+        it('sets selection and reveal when opening a workspace match with line number', async () => {
+            const workspaceFolder = { uri: { fsPath: '/ws', path: '/ws' } };
+            vscodeStub.workspace.workspaceFolders = [workspaceFolder];
+            const absUri = { fsPath: '/ws/src/foo.ts', path: '/ws/src/foo.ts' };
+            const fileUri = createUri('/ws/src/foo.ts');
+            vscodeStub.workspace.findFiles.resolves([fileUri]);
+            vscodeStub.workspace.asRelativePath.callsFake((uri: {path: string}) => uri.path.replace('/ws/', ''));
+            vscodeStub.Uri.joinPath.withArgs(workspaceFolder.uri, 'src/foo.ts').returns(absUri);
+
+            await fileHelpers.openFileInEditor('foo.ts', 10, vscodeStub.ViewColumn.Two);
+
+            expect(vscodeStub.window.showTextDocument.getCall(0).args[1]).to.equal(vscodeStub.ViewColumn.Two);
+            const selection = lastShownEditor?.selection as {start: {line: number}};
+            expect(selection.start.line).to.equal(9);
+            expect(lastShownEditor?.revealRange.calledOnce).to.be.true;
         });
     });
 });

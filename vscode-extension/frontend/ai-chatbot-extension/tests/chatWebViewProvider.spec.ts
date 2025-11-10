@@ -275,6 +275,23 @@ describe('ChatWebviewProvider', () => {
             expect(result).to.be.false;
             expect(harness.panelStub.reveal.called).to.be.false;
         });
+
+        it('clears disposed panel and returns false when reveal throws', () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            const sendMessageSpy = sandbox.spy(provider as any, '_sendMessageToWebview');
+
+            (provider as any)._panel = {
+                reveal: sandbox.stub().throws(new Error('boom')),
+                webview: harness.panelStub.webview,
+            };
+
+            const result = (provider as any)._tryRevealExistingPanel('hello');
+
+            expect(result).to.be.false;
+            expect((provider as any)._panel).to.be.undefined;
+            expect(sendMessageSpy.called).to.be.false;
+        });
     });
 
     describe('_createNewPanel', () => {
@@ -342,6 +359,20 @@ describe('ChatWebviewProvider', () => {
             const html = harness.panelStub.webview.html;
             expect(html).to.contain('<title>AI Chatbot Assistant</title>');
             expect(html).to.contain('webviewClient.js');
+        });
+
+        it('uses fallback HTML when bundle read fails', () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            harness.fsStub.existsSync.returns(true);
+            harness.fsStub.readFileSync.throws(new Error('read fail'));
+            const fallbackSpy = sandbox.spy(harness.ChatWebviewProvider.prototype as any, '_getFallbackHtml');
+
+            (provider as any)._setupWebview(harness.panelStub);
+
+            expect(fallbackSpy.calledOnce).to.be.true;
+            const html = harness.panelStub.webview.html;
+            expect(html).to.contain('<title>AI Chatbot Assistant</title>');
         });
     });
 
@@ -423,6 +454,74 @@ describe('ChatWebviewProvider', () => {
             expect(harness.typesStub.assertUnreachable.getCall(0).args[0]).to.equal(unknownMessage);
             expect(harness.panelStub.webview.postMessage.called).to.be.false;
         });
+
+        it('routes GET_WORKSPACE_FILES to _sendWorkspaceFiles', async () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            (provider as any)._panel = harness.panelStub;
+            const spy = sandbox.stub(provider as any, '_sendWorkspaceFiles');
+
+            await (provider as any)._handleWebviewMessage({
+                type: MESSAGE_TYPES.GET_WORKSPACE_FILES,
+                payload: {},
+            });
+
+            expect(spy.calledOnce).to.be.true;
+        });
+
+        it('routes GET_CURRENT_FILE to _sendCurrentFile', async () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            const spy = sandbox.stub(provider as any, '_sendCurrentFile');
+
+            await (provider as any)._handleWebviewMessage({
+                type: MESSAGE_TYPES.GET_CURRENT_FILE,
+                payload: {},
+            });
+
+            expect(spy.calledOnce).to.be.true;
+        });
+
+        it('routes OPEN_FILE to _openFile with payload parameters', async () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            const spy = sandbox.stub(provider as any, '_openFile').resolves();
+            const payload = { fileName: '/x/a.ts', lineNumber: 12 };
+
+            await (provider as any)._handleWebviewMessage({
+                type: MESSAGE_TYPES.OPEN_FILE,
+                payload,
+            });
+
+            expect(spy.calledOnceWithExactly(payload.fileName, payload.lineNumber)).to.be.true;
+        });
+
+        it('routes SAVE_CHAT_HISTORY to _saveChatHistory', async () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            const spy = sandbox.stub(provider as any, '_saveChatHistory');
+            const payload = { messages: [{ text: 'hi' }] } as any;
+
+            await (provider as any)._handleWebviewMessage({
+                type: MESSAGE_TYPES.SAVE_CHAT_HISTORY,
+                payload,
+            });
+
+            expect(spy.calledOnceWithExactly(payload.messages)).to.be.true;
+        });
+
+        it('routes REQUEST_CHAT_HISTORY to _loadChatHistory', async () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            const spy = sandbox.stub(provider as any, '_loadChatHistory');
+
+            await (provider as any)._handleWebviewMessage({
+                type: MESSAGE_TYPES.REQUEST_CHAT_HISTORY,
+                payload: {},
+            });
+
+            expect(spy.calledOnce).to.be.true;
+        });
     });
 
     describe('_handleUserMessage', () => {
@@ -502,6 +601,19 @@ describe('ChatWebviewProvider', () => {
 
             expect(harness.fileHelpersStub.openFileInEditor.calledOnceWithExactly('/a/b.ts', undefined, 1)).to.be.true;
         });
+
+        it('shows warning and logs when editor open fails', async () => {
+            const harness = setupHarness();
+            harness.fileHelpersStub.openFileInEditor.rejects(new Error('EOPEN'));
+            const warnSpy = sandbox.spy(console, 'warn');
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+
+            await (provider as any)._openFile('/x/fail.ts', 3);
+
+            expect(harness.vscodeStub.window.showWarningMessage.calledOnce).to.be.true;
+            expect(harness.vscodeStub.window.showWarningMessage.getCall(0).args[0]).to.contain('/x/fail.ts');
+            expect(warnSpy.calledOnce).to.be.true;
+        });
     });
 
     describe('workspace helpers', () => {
@@ -543,6 +655,21 @@ describe('ChatWebviewProvider', () => {
 
             expect(result).to.be.true;
             expect(harness.fileHelpersStub.isTextFile.calledOnceWithExactly('main.ts')).to.be.true;
+        });
+
+        it('_sendWorkspaceFiles logs when getWorkspaceFiles rejects', async () => {
+            const harness = setupHarness();
+            const provider = new harness.ChatWebviewProvider(harness.extensionUri as any, harness.extensionContext as any);
+            const error = new Error('scan failed');
+            sandbox.stub(provider as any, '_getWorkspaceFiles').rejects(error);
+            const errorSpy = sandbox.stub(console, 'error');
+            (provider as any)._panel = harness.panelStub;
+
+            await (provider as any)._sendWorkspaceFiles();
+            await Promise.resolve(); // wait for rejection handler
+
+            expect(errorSpy.calledOnce).to.be.true;
+            expect(harness.panelStub.webview.postMessage.called).to.be.false;
         });
     });
 
