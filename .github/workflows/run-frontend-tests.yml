@@ -35,11 +35,15 @@ jobs:
 
       - name: Compile TypeScript source code
         run: npm run compile
+        continue-on-error: false
 
       - name: Run tests with Mocha
-        run: npx mocha --require ts-node/register --timeout 10000 --exit 'tests/**/*.spec.ts'
+        run: npx mocha 'tests/**/*.spec.ts'
         continue-on-error: false
         env:
           NODE_ENV: test
-          TS_NODE_COMPILER_OPTIONS: '{"module":"commonjs","esModuleInterop":true}'
+          TS_NODE_TRANSPILE_ONLY: 'true'
+          TS_NODE_COMPILER_OPTIONS: '{"module":"commonjs","esModuleInterop":true,"skipLibCheck":true,"resolveJsonModule":true}'
+          TS_NODE_FILES: 'true'
+          TS_NODE_PROJECT: tsconfig.test.json
 
