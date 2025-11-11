@@ -86,7 +86,135 @@ The backend responds with:
 }
 ```
 
-## 🧪 Testing the Integration
+## 🧪 Testing
+
+### Running Backend Tests Locally
+
+The backend uses **Jest** as the testing framework for unit tests.
+
+#### Prerequisites
+
+1. **Node.js**: Version 16.0.0 or higher
+2. **Dependencies**: All dependencies are installed via `npm install`, including:
+   - `jest` (^29.7.0) - Testing framework
+   - `supertest` (^7.1.3) - HTTP assertion library for integration tests
+   - `@eslint/js` (^9.15.0) - ESLint for code quality
+
+#### Installation
+
+```bash
+cd vscode-extension/backend
+npm install
+```
+
+#### Running Tests
+
+**Run all unit tests with coverage:**
+```bash
+npm test
+```
+
+**Run tests in watch mode (re-runs on file changes):**
+```bash
+npm run test:watch
+```
+
+**Run API integration tests (requires server to be running):**
+```bash
+# Terminal 1: Start the backend server
+npm start
+
+# Terminal 2: Run integration tests
+npm run test:integration
+```
+
+**Run all tests (unit + integration):**
+```bash
+# Terminal 1: Start the backend server
+npm start
+
+# Terminal 2: Run all tests
+npm run test:all
+```
+
+**Run specific test file:**
+```bash
+npm test -- tests/unit/llmService.test.js
+```
+
+**Run tests with coverage report:**
+```bash
+npm test -- --coverage
+```
+
+The coverage report will be generated in the `coverage/` directory. Target coverage is 80%+.
+
+#### Test Structure
+
+- **Unit Tests**: Located in `tests/unit/` - Fast tests with mocked dependencies
+- **Integration Tests**: Located in `tests/integration/` - Tests that require the server to be running
+
+### Running Frontend Tests Locally
+
+The frontend (VS Code extension) uses **Mocha** as the testing framework with **Chai** for assertions and **Sinon** for mocking.
+
+#### Prerequisites
+
+1. **Node.js**: Version 16.0.0 or higher
+2. **Dependencies**: All dependencies are installed via `npm install`, including:
+   - `mocha` (^10.4.0) - Testing framework
+   - `chai` (^4.4.1) - Assertion library
+   - `sinon` (^17.0.1) - Mocking and spying library
+   - `ts-node` (^10.9.2) - TypeScript execution for Node.js
+   - `proxyquire` (^2.1.3) - Module mocking for Node.js
+   - `@types/mocha`, `@types/chai`, `@types/sinon` - TypeScript type definitions
+
+#### Installation
+
+```bash
+cd vscode-extension/frontend/ai-chatbot-extension
+npm install
+```
+
+#### Running Tests
+
+**Compile TypeScript source code:**
+```bash
+npm run compile
+```
+
+**Run all tests:**
+```bash
+npx mocha 'tests/**/*.spec.ts'
+```
+
+Or using the Mocha configuration file (`.mocharc.json`):
+```bash
+npx mocha
+```
+
+**Run specific test file:**
+```bash
+npx mocha tests/chatWebViewProvider.spec.ts
+npx mocha tests/fileHelper.spec.ts
+```
+
+**Run tests with TypeScript compilation:**
+The tests use `ts-node` to compile TypeScript on the fly. The `.mocharc.json` configuration file automatically handles this.
+
+#### Test Structure
+
+- **Test Files**: Located in `tests/` directory with `.spec.ts` extension
+- **Test Configuration**: Uses `tsconfig.test.json` which extends the main `tsconfig.json` and includes both `src/` and `tests/` directories
+- **Mocha Configuration**: `.mocharc.json` configures Mocha to use `ts-node/register` for TypeScript support
+
+#### Troubleshooting Frontend Tests
+
+If you encounter module resolution issues:
+1. Ensure all dependencies are installed: `npm install`
+2. Verify TypeScript compilation works: `npm run compile`
+3. Check that `tsconfig.test.json` exists and is properly configured
+4. Ensure `.mocharc.json` is present in the project root
 
 ### Run Integration Tests
 
