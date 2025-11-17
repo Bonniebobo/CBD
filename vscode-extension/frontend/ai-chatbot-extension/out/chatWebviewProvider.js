@@ -1,41 +1,36 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatWebviewProvider = void 0;
-const vscode = require("vscode");
-const path = require("path");
-const fs = require("fs");
-const https = require("https");
-const http = require("http");
-const url_1 = require("url");
-/**
- * Configuration constants for the AI Chatbot webview
- */
-const CONFIG = {
-    VIEW_TYPE: 'ai-chatbot.webview',
-    PANEL_TITLE: 'AI Chatbot Assistant',
-    CHAT_HISTORY_KEY: 'ai-chatbot.chatHistory',
-    VIEW_COLUMN: vscode.ViewColumn.Two,
-    FILE_OPEN_COLUMN: vscode.ViewColumn.One,
-    LOAD_DELAY_MS: 100,
-    SAVE_DELAY_MS: 100,
-    WEBVIEW_REQUEST_DELAY_MS: 200
-};
-/**
- * Message types for communication between webview and extension
- */
-const MESSAGE_TYPES = {
-    SEND_MESSAGE: 'sendMessage',
-    GET_WORKSPACE_FILES: 'getWorkspaceFiles',
-    GET_CURRENT_FILE: 'getCurrentFile',
-    OPEN_FILE: 'openFile',
-    SAVE_CHAT_HISTORY: 'saveChatHistory',
-    REQUEST_CHAT_HISTORY: 'requestChatHistory',
-    AI_RESPONSE: 'aiResponse',
-    WORKSPACE_FILES: 'workspaceFiles',
-    CURRENT_FILE: 'currentFile',
-    LOAD_CHAT_HISTORY: 'loadChatHistory',
-    INITIAL_MESSAGE: 'initialMessage'
-};
+const vscode = __importStar(require("vscode"));
+const fs = __importStar(require("fs"));
+const config_1 = require("./config");
+const types_1 = require("./types");
+const stateStore_1 = require("./stateStore");
+const backendClient_1 = require("./backendClient");
+const fileHelpers_1 = require("./fileHelpers");
 /**
  * AI Chatbot Webview Provider
  *
@@ -47,6 +42,7 @@ class ChatWebviewProvider {
     constructor(extensionUri, context) {
         this._extensionUri = extensionUri;
         this._context = context;
+        this._stateStore = (0, stateStore_1.createChatStateStore)(context);
     }
     /**
      * Creates a new webview panel or shows an existing one
@@ -61,9 +57,9 @@ class ChatWebviewProvider {
     /**
      * Restores a webview panel from serialized state
      * @param panel The webview panel to restore
-     * @param state Serialized state (unused)
+     * @param _state Serialized state (unused)
      */
-    restore(panel, state) {
+    restore(panel, _state) {
         this._panel = panel;
         this._setupWebview(panel);
         this._setupMessageHandlers(panel);
@@ -85,13 +81,13 @@ class ChatWebviewProvider {
         if (!this._panel) {
             return false;
         }
-        console.log(`[AI Chatbot] Panel already exists, revealing in column ${CONFIG.VIEW_COLUMN}`);
+        console.log(`[AI Chatbot] Panel already exists, revealing in column ${config_1.CONFIG.VIEW_COLUMN}`);
         try {
-            this._panel.reveal(CONFIG.VIEW_COLUMN);
+            this._panel.reveal(config_1.CONFIG.VIEW_COLUMN);
             if (initialMessage) {
                 this._sendMessageToWebview({
-                    type: MESSAGE_TYPES.INITIAL_MESSAGE,
-                    message: initialMessage
+                    type: types_1.MESSAGE_TYPES.INITIAL_MESSAGE,
+                    payload: { message: initialMessage },
                 });
             }
             return true;
@@ -107,23 +103,21 @@ class ChatWebviewProvider {
      * @param initialMessage Optional initial message
      */
     _createNewPanel(initialMessage) {
-        console.log(`[AI Chatbot] Creating new panel in column ${CONFIG.VIEW_COLUMN}`);
+        console.log(`[AI Chatbot] Creating new panel in column ${config_1.CONFIG.VIEW_COLUMN}`);
         // Clear chat history when creating a new panel
         this._clearChatHistory();
-        this._panel = vscode.window.createWebviewPanel(ChatWebviewProvider.viewType, CONFIG.PANEL_TITLE, CONFIG.VIEW_COLUMN, {
+        this._panel = vscode.window.createWebviewPanel(ChatWebviewProvider.viewType, config_1.CONFIG.PANEL_TITLE, config_1.CONFIG.VIEW_COLUMN, {
             enableScripts: true,
             retainContextWhenHidden: true,
-            localResourceRoots: [
-                vscode.Uri.joinPath(this._extensionUri, 'out')
-            ]
+            localResourceRoots: (0, config_1.getLocalResourceRoots)(this._extensionUri),
         });
         this._setupWebview(this._panel);
         this._setupMessageHandlers(this._panel);
         this._setupPanelEventHandlers(this._panel);
         if (initialMessage) {
             this._sendMessageToWebview({
-                type: MESSAGE_TYPES.INITIAL_MESSAGE,
-                message: initialMessage
+                type: types_1.MESSAGE_TYPES.INITIAL_MESSAGE,
+                payload: { message: initialMessage },
             });
         }
         this._loadChatHistoryWithDelay();
@@ -149,7 +143,7 @@ class ChatWebviewProvider {
     _setupPanelEventHandlers(panel) {
         // Handle panel disposal
         panel.onDidDispose(() => {
-            console.log(`[AI Chatbot] Panel disposed`);
+            console.log('[AI Chatbot] Panel disposed');
             this._panel = undefined;
         }, null);
         // Handle view state changes
@@ -166,24 +160,26 @@ class ChatWebviewProvider {
      */
     async _handleWebviewMessage(message) {
         switch (message.type) {
-            case MESSAGE_TYPES.SEND_MESSAGE:
-                await this._handleUserMessage(message.text);
+            case types_1.MESSAGE_TYPES.SEND_MESSAGE:
+                await this._handleUserMessage(message.payload.text);
                 break;
-            case MESSAGE_TYPES.GET_WORKSPACE_FILES:
+            case types_1.MESSAGE_TYPES.GET_WORKSPACE_FILES:
                 this._sendWorkspaceFiles();
                 break;
-            case MESSAGE_TYPES.GET_CURRENT_FILE:
+            case types_1.MESSAGE_TYPES.GET_CURRENT_FILE:
                 this._sendCurrentFile();
                 break;
-            case MESSAGE_TYPES.OPEN_FILE:
-                await this._openFile(message.fileName, message.lineNumber);
+            case types_1.MESSAGE_TYPES.OPEN_FILE:
+                await this._openFile(message.payload.fileName, message.payload.lineNumber);
                 break;
-            case MESSAGE_TYPES.SAVE_CHAT_HISTORY:
-                this._saveChatHistory(message.messages);
+            case types_1.MESSAGE_TYPES.SAVE_CHAT_HISTORY:
+                this._saveChatHistory(message.payload.messages);
                 break;
-            case MESSAGE_TYPES.REQUEST_CHAT_HISTORY:
+            case types_1.MESSAGE_TYPES.REQUEST_CHAT_HISTORY:
                 this._loadChatHistory();
                 break;
+            default:
+                (0, types_1.assertUnreachable)(message);
         }
     }
     /**
@@ -197,24 +193,24 @@ class ChatWebviewProvider {
         try {
             // Show loading state
             this._sendMessageToWebview({
-                type: MESSAGE_TYPES.AI_RESPONSE,
-                response: "🤖 Analyzing your codebase... Please wait."
+                type: types_1.MESSAGE_TYPES.AI_RESPONSE,
+                payload: { response: '🤖 Analyzing your codebase... Please wait.' },
             });
             // Get workspace context with file contents
             const workspaceFiles = await this._getWorkspaceFilesWithContent();
             // Call backend API
             const response = await this._callBackendAPI(text, workspaceFiles);
             this._sendMessageToWebview({
-                type: MESSAGE_TYPES.AI_RESPONSE,
-                response: response
+                type: types_1.MESSAGE_TYPES.AI_RESPONSE,
+                payload: { response },
             });
         }
         catch (error) {
             console.error('[AI Chatbot] Error handling user message:', error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             this._sendMessageToWebview({
-                type: MESSAGE_TYPES.AI_RESPONSE,
-                response: `⚠️ Failed to contact the Gemini backend: ${errorMessage}`
+                type: types_1.MESSAGE_TYPES.AI_RESPONSE,
+                payload: { response: `⚠️ Failed to contact the Gemini backend: ${errorMessage}` },
             });
         }
     }
@@ -225,95 +221,28 @@ class ChatWebviewProvider {
      */
     async _openFile(fileName, lineNumber) {
         try {
-            let document;
-            // First try to find the file in the workspace
-            const workspaceFiles = await this._getWorkspaceFiles();
-            const matchingFile = workspaceFiles.find(file => file.endsWith(fileName) || file.includes(fileName));
-            if (matchingFile) {
-                // Get the workspace folder to construct the absolute path
-                if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-                    const workspaceFolder = vscode.workspace.workspaceFolders[0];
-                    const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, matchingFile);
-                    try {
-                        document = await vscode.workspace.openTextDocument(absolutePath);
-                    }
-                    catch (e) {
-                        // Continue to fallback
-                    }
-                }
-            }
-            if (!document) {
-                // Fallback: try the file name directly (in case it's already an absolute path)
-                try {
-                    document = await vscode.workspace.openTextDocument(fileName);
-                }
-                catch (error) {
-                    throw new Error(`File not found: ${fileName}`);
-                }
-            }
-            if (document) {
-                // Open the file in the left panel to keep the chat on the right
-                const editor = await vscode.window.showTextDocument(document, CONFIG.FILE_OPEN_COLUMN);
-                if (lineNumber) {
-                    const position = new vscode.Position(lineNumber - 1, 0);
-                    editor.selection = new vscode.Selection(position, position);
-                    editor.revealRange(new vscode.Range(position, position));
-                }
-            }
+            await (0, fileHelpers_1.openFileInEditor)(fileName, lineNumber, config_1.CONFIG.FILE_OPEN_COLUMN);
         }
         catch (error) {
-            // Show a helpful error message
             vscode.window.showWarningMessage(`File not found in current workspace: ${fileName}. Please ensure the file exists or open the correct workspace.`, 'OK');
+            console.warn('[AI Chatbot] Failed to open file from webview command:', error);
         }
     }
     /**
      * Gets workspace files
      * @returns Array of workspace file paths
      */
-    async _getWorkspaceFiles() {
-        const files = [];
-        if (vscode.workspace.workspaceFolders) {
-            for (const folder of vscode.workspace.workspaceFolders) {
-                const pattern = new vscode.RelativePattern(folder, '**/*');
-                const fileUris = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
-                const relativePaths = fileUris.map(uri => vscode.workspace.asRelativePath(uri));
-                files.push(...relativePaths);
-            }
-        }
-        return files.slice(0, 100); // Limit to first 100 files
+    _getWorkspaceFiles() {
+        return (0, fileHelpers_1.getWorkspaceFiles)();
     }
     /**
      * Gets workspace files with their content for backend API
      * @returns Array of workspace files with content
      */
-    async _getWorkspaceFilesWithContent() {
-        const files = [];
-        if (vscode.workspace.workspaceFolders) {
-            for (const folder of vscode.workspace.workspaceFolders) {
-                const pattern = new vscode.RelativePattern(folder, '**/*');
-                const fileUris = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
-                // Limit to first 50 files to avoid large payloads
-                const limitedUris = fileUris.slice(0, 50);
-                for (const uri of limitedUris) {
-                    try {
-                        const relativePath = vscode.workspace.asRelativePath(uri);
-                        const fileContent = await vscode.workspace.fs.readFile(uri);
-                        const content = Buffer.from(fileContent).toString('utf8');
-                        // Skip binary files and very large files
-                        if (this._isTextFile(relativePath) && content.length < 50000) {
-                            files.push({
-                                filename: relativePath,
-                                content: content
-                            });
-                        }
-                    }
-                    catch (error) {
-                        console.warn(`[AI Chatbot] Failed to read file ${uri.fsPath}:`, error);
-                    }
-                }
-            }
-        }
-        return files;
+    _getWorkspaceFilesWithContent() {
+        return (0, fileHelpers_1.getWorkspaceFilesWithContent)({
+            fileFilter: (filename) => this._isTextFile(filename),
+        });
     }
     /**
      * Checks if a file is a text file based on extension
@@ -321,13 +250,7 @@ class ChatWebviewProvider {
      * @returns true if the file is likely a text file
      */
     _isTextFile(filename) {
-        const textExtensions = [
-            '.ts', '.tsx', '.js', '.jsx', '.json', '.md', '.txt', '.css', '.scss', '.html', '.xml', '.yaml', '.yml',
-            '.py', '.java', '.cpp', '.c', '.h', '.hpp', '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala',
-            '.vue', '.svelte', '.astro', '.config', '.env', '.gitignore', '.dockerfile', '.dockerignore'
-        ];
-        const ext = path.extname(filename).toLowerCase();
-        return textExtensions.includes(ext) || !ext; // Include files without extensions
+        return (0, fileHelpers_1.isTextFile)(filename);
     }
     /**
      * Calls the backend API with files and prompt
@@ -336,83 +259,19 @@ class ChatWebviewProvider {
      * @returns AI response from backend
      */
     async _callBackendAPI(prompt, files) {
-        const backendUrl = vscode.workspace.getConfiguration('ai-chatbot').get('backendUrl', 'http://localhost:3001');
-        const uploadUrl = `${backendUrl}/upload`;
-        console.log(`[AI Chatbot] Calling backend API: ${uploadUrl}`);
+        const backendUrl = vscode.workspace
+            .getConfiguration('ai-chatbot')
+            .get('backendUrl', config_1.CONFIG.DEFAULT_BACKEND_URL);
+        console.log(`[AI Chatbot] Calling backend API at ${backendUrl}`);
         console.log(`[AI Chatbot] Sending ${files.length} files with prompt: "${prompt}"`);
-        return new Promise((resolve, reject) => {
-            try {
-                const url = new url_1.URL(uploadUrl);
-                const postData = JSON.stringify({
-                    files: files,
-                    prompt: prompt
-                });
-                const options = {
-                    hostname: url.hostname,
-                    port: url.port || (url.protocol === 'https:' ? 443 : 80),
-                    path: url.pathname,
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(postData)
-                    }
-                };
-                const client = url.protocol === 'https:' ? https : http;
-                const req = client.request(options, (res) => {
-                    let data = '';
-                    res.on('data', (chunk) => {
-                        data += chunk;
-                    });
-                    res.on('end', () => {
-                        try {
-                            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                                const responseData = JSON.parse(data);
-                                console.log(`[AI Chatbot] Backend response received:`, responseData.message);
-                                if (responseData.error) {
-                                    reject(new Error(responseData.error));
-                                    return;
-                                }
-                                const aiResponse = responseData.aiResponse ?? responseData.message;
-                                if (typeof aiResponse === 'string' && aiResponse.trim().length > 0) {
-                                    resolve(aiResponse);
-                                }
-                                else {
-                                    reject(new Error('Backend response received but no AI content was provided.'));
-                                }
-                            }
-                            else {
-                                reject(new Error(`Backend API error: ${res.statusCode} ${res.statusMessage}`));
-                            }
-                        }
-                        catch (parseError) {
-                            console.error('[AI Chatbot] Failed to parse backend response:', parseError);
-                            reject(new Error('Invalid response from backend'));
-                        }
-                    });
-                });
-                req.on('error', (error) => {
-                    console.error('[AI Chatbot] Backend API call failed:', error);
-                    reject(error);
-                });
-                req.write(postData);
-                req.end();
-            }
-            catch (error) {
-                console.error('[AI Chatbot] Backend API call failed:', error);
-                reject(error);
-            }
-        });
+        return (0, backendClient_1.callBackendAPI)(prompt, files, backendUrl);
     }
     /**
      * Gets the currently open file
      * @returns Current file path or undefined
      */
     _getCurrentFile() {
-        const editor = vscode.window.activeTextEditor;
-        if (editor) {
-            return vscode.workspace.asRelativePath(editor.document.uri);
-        }
-        return undefined;
+        return (0, fileHelpers_1.getActiveEditorPath)();
     }
     /**
      * Sends workspace files to the webview
@@ -420,10 +279,10 @@ class ChatWebviewProvider {
     _sendWorkspaceFiles() {
         this._getWorkspaceFiles().then(files => {
             this._sendMessageToWebview({
-                type: MESSAGE_TYPES.WORKSPACE_FILES,
-                files: files
+                type: types_1.MESSAGE_TYPES.WORKSPACE_FILES,
+                payload: { files },
             });
-        });
+        }).catch(error => console.error('[AI Chatbot] Failed to gather workspace files for webview:', error));
     }
     /**
      * Sends current file information to the webview
@@ -431,8 +290,8 @@ class ChatWebviewProvider {
     _sendCurrentFile() {
         const currentFile = this._getCurrentFile();
         this._sendMessageToWebview({
-            type: MESSAGE_TYPES.CURRENT_FILE,
-            file: currentFile
+            type: types_1.MESSAGE_TYPES.CURRENT_FILE,
+            payload: { file: currentFile },
         });
     }
     /**
@@ -440,22 +299,21 @@ class ChatWebviewProvider {
      * @param message The message to send
      */
     _sendMessageToWebview(message) {
-        if (this._panel) {
-            this._panel.webview.postMessage(message);
-        }
+        this._panel?.webview.postMessage(message);
     }
     /**
      * Loads chat history from storage
      */
     _loadChatHistory() {
-        if (!this._panel)
+        if (!this._panel) {
             return;
-        const chatHistory = this._context.globalState.get(CONFIG.CHAT_HISTORY_KEY, []);
-        console.log(`[AI Chatbot] Loading chat history:`, chatHistory.length, 'messages');
+        }
+        const chatHistory = this._stateStore.getChatHistory();
+        console.log('[AI Chatbot] Loading chat history:', chatHistory.length, 'messages');
         if (chatHistory.length > 0) {
             this._sendMessageToWebview({
-                type: MESSAGE_TYPES.LOAD_CHAT_HISTORY,
-                messages: chatHistory
+                type: types_1.MESSAGE_TYPES.LOAD_CHAT_HISTORY,
+                payload: { messages: chatHistory },
             });
         }
     }
@@ -465,22 +323,22 @@ class ChatWebviewProvider {
     _loadChatHistoryWithDelay() {
         setTimeout(() => {
             this._loadChatHistory();
-        }, CONFIG.LOAD_DELAY_MS);
+        }, config_1.CONFIG.LOAD_DELAY_MS);
     }
     /**
      * Saves chat history to storage
      * @param messages Array of chat messages
      */
     _saveChatHistory(messages) {
-        this._context.globalState.update(CONFIG.CHAT_HISTORY_KEY, messages);
-        console.log(`[AI Chatbot] Saved chat history:`, messages.length, 'messages');
+        void this._stateStore.saveChatHistory(messages);
+        console.log('[AI Chatbot] Saved chat history:', messages.length, 'messages');
     }
     /**
      * Clears chat history from storage
      */
     _clearChatHistory() {
-        this._context.globalState.update(CONFIG.CHAT_HISTORY_KEY, []);
-        console.log(`[AI Chatbot] Cleared chat history for new panel`);
+        void this._stateStore.clearChatHistory();
+        console.log('[AI Chatbot] Cleared chat history for new panel');
     }
     /**
      * Generates HTML content for the webview
@@ -488,62 +346,28 @@ class ChatWebviewProvider {
      * @returns HTML string
      */
     _getHtmlForWebview(webview) {
-        // Try to load the built React app first
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'resources', 'webviewClient.js'));
         const reactAppPath = vscode.Uri.joinPath(this._extensionUri, 'out', 'index.html');
         try {
             if (fs.existsSync(reactAppPath.fsPath)) {
                 let html = fs.readFileSync(reactAppPath.fsPath, 'utf8');
-                // Update resource paths to work with webview
-                html = html.replace(/src="([^"]*\.js)"/g, (match, src) => `src="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', src))}"`);
-                html = html.replace(/href="([^"]*\.css)"/g, (match, href) => `href="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', href))}"`);
-                // Inject VS Code API
-                html = html.replace('</head>', `
-                    <script>
-                        const vscode = acquireVsCodeApi();
-                        
-                        // Global functions for VS Code integration
-                        window.setInitialMessage = function(message) {
-                            const input = document.getElementById('messageInput');
-                            if (input) input.value = message;
-                        };
-                        
-                        window.addAIResponse = function(response) {
-                            // This will be handled by the React app
-                            if (window.addMessage) {
-                                window.addMessage('ai', response);
-                            }
-                        };
-                        
-                        window.setWorkspaceFiles = function(files) {
-                            // This will be handled by the React app
-                            if (window.updateWorkspaceFiles) {
-                                window.updateWorkspaceFiles(files);
-                            }
-                        };
-                        
-                        window.setCurrentFile = function(file) {
-                            // This will be handled by the React app
-                            if (window.updateCurrentFile) {
-                                window.updateCurrentFile(file);
-                            }
-                        };
-                    </script>
-                    </head>`);
+                html = html.replace(/src="([^"]*\.js)"/g, (_match, src) => `src="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', src))}"`);
+                html = html.replace(/href="([^"]*\.css)"/g, (_match, href) => `href="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out', href))}"`);
+                html = html.replace('</body>', `    <script src="${scriptUri}"></script>\n</body>`);
                 return html;
             }
         }
         catch (error) {
             console.log(`[AI Chatbot] Failed to load React app, using fallback: ${error}`);
         }
-        // Fallback to inline HTML
-        return this._getFallbackHtml(webview);
+        return this._getFallbackHtml(webview, scriptUri.toString());
     }
     /**
      * Generates fallback HTML content for the webview
-     * @param webview The webview instance
+     * @param _webview The webview instance
      * @returns HTML string
      */
-    _getFallbackHtml(webview) {
+    _getFallbackHtml(_webview, scriptSrc) {
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -788,327 +612,11 @@ class ChatWebviewProvider {
                 </div>
             </div>
             
-            <script>
-                const vscode = acquireVsCodeApi();
-                
-                function sendMessage() {
-                    const input = document.getElementById('messageInput');
-                    const message = input.value.trim();
-                    
-                    if (message) {
-                        addMessage('user', message);
-                        input.value = '';
-                        
-                        // Send message to extension
-                        vscode.postMessage({
-                            type: '${MESSAGE_TYPES.SEND_MESSAGE}',
-                            text: message
-                        });
-                    }
-                }
-                
-                function addMessage(type, content) {
-                    addMessageWithParsing(type, content, true);
-                }
-                
-                function addMessageWithParsing(type, content, saveHistory = false) {
-                    const container = document.getElementById('messages');
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = 'message';
-                    
-                    const avatar = document.createElement('div');
-                    avatar.className = 'message-avatar';
-                    avatar.textContent = type === 'user' ? '👤' : '🤖';
-                    
-                    const contentDiv = document.createElement('div');
-                    contentDiv.className = 'message-content';
-                    
-                    if (type === 'ai') {
-                        // Store the raw content for saving
-                        messageDiv.setAttribute('data-raw-content', content);
-                        
-                        // Use enhanced parsing for AI messages with citations
-                        const parsedLines = parseContentWithCitations(content);
-                        parsedLines.forEach(lineDiv => {
-                            contentDiv.appendChild(lineDiv);
-                        });
-                    } else {
-                        // Simple parsing for user messages
-                        const textDiv = document.createElement('div');
-                        textDiv.className = 'message-text';
-                        textDiv.innerHTML = parseContent(content);
-                        contentDiv.appendChild(textDiv);
-                    }
-                    
-                    messageDiv.appendChild(avatar);
-                    messageDiv.appendChild(contentDiv);
-                    container.appendChild(messageDiv);
-                    container.scrollTop = container.scrollHeight;
-                    
-                    // Save chat history after adding a message (only for new messages, not when loading)
-                    if (saveHistory) {
-                        setTimeout(() => saveChatHistory(), ${CONFIG.SAVE_DELAY_MS});
-                    }
-                }
-                
-                function parseContent(text) {
-                    // Parse file references like [text](file:line)
-                    return text.replace(/\\[([^\\]]+)\\]\\(([^:)]+):?(\\d+)?\\)/g, (match, linkText, fileName, lineNumber) => {
-                        return \`<span class="file-link" onclick="openFile('\${fileName}', \${lineNumber || 'null'})">\${linkText}</span>\`;
-                    });
-                }
-                
-                function parseContentWithCitations(text) {
-                    const lines = text.split('\\n');
-                    const result = [];
-                    
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i];
-                        const lineReferences = [];
-                        
-                        // Find all file references in this line
-                        const linkRegex = /\\[([^\\]]+)\\]\\(([^:)]+):?(\\d+)?\\)/g;
-                        let match;
-                        let lastIndex = 0;
-                        let lineContent = '';
-                        
-                        while ((match = linkRegex.exec(line)) !== null) {
-                            // Add text before the link
-                            if (match.index > lastIndex) {
-                                lineContent += line.slice(lastIndex, match.index);
-                            }
-                            
-                            // Add the clickable link
-                            const linkText = match[1];
-                            const fileName = match[2];
-                            const lineNumber = match[3];
-                            
-                            lineContent += \`<span class="file-link" onclick="openFile('\${fileName}', \${lineNumber || 'null'})">\${linkText}</span>\`;
-                            
-                            // Store reference for per-line citation
-                            if (lineNumber) {
-                                lineReferences.push({
-                                    fileName: fileName,
-                                    lineNumber: lineNumber,
-                                    linkText: linkText
-                                });
-                            }
-                            
-                            lastIndex = match.index + match[0].length;
-                        }
-                        
-                        // Add remaining text
-                        if (lastIndex < line.length) {
-                            lineContent += line.slice(lastIndex);
-                        }
-                        
-                        // Create the line with content and citations
-                        const lineDiv = document.createElement('div');
-                        lineDiv.className = 'message-line';
-                        
-                        const contentDiv = document.createElement('div');
-                        contentDiv.className = 'line-content';
-                        contentDiv.innerHTML = lineContent || line;
-                        
-                        lineDiv.appendChild(contentDiv);
-                        
-                        // Add per-line citation buttons
-                        if (lineReferences.length > 0) {
-                            const citationsDiv = document.createElement('div');
-                            citationsDiv.className = 'line-citations';
-                            
-                            lineReferences.forEach(ref => {
-                                const citationBtn = document.createElement('button');
-                                citationBtn.className = 'file-reference';
-                                citationBtn.innerHTML = \`📄 \${ref.fileName}:\${ref.lineNumber}\`;
-                                citationBtn.onclick = () => openFile(ref.fileName, ref.lineNumber);
-                                citationsDiv.appendChild(citationBtn);
-                            });
-                            
-                            lineDiv.appendChild(citationsDiv);
-                        }
-                        
-                        result.push(lineDiv);
-                    }
-                    
-                    return result;
-                }
-                
-                function openFile(fileName, lineNumber) {
-                    vscode.postMessage({
-                        type: '${MESSAGE_TYPES.OPEN_FILE}',
-                        fileName: fileName,
-                        lineNumber: lineNumber
-                    });
-                }
-                
-                // Handle Enter key
-                document.getElementById('messageInput').addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        sendMessage();
-                    }
-                });
-                
-                // Handle send button
-                document.getElementById('sendButton').addEventListener('click', sendMessage);
-                
-                // Listen for messages from extension
-                window.addEventListener('message', event => {
-                    const message = event.data;
-                    switch (message.type) {
-                        case '${MESSAGE_TYPES.AI_RESPONSE}':
-                            addMessage('ai', message.response);
-                            break;
-                        case '${MESSAGE_TYPES.WORKSPACE_FILES}':
-                            updateStatus(\`\${message.files ? message.files.length : 0} files indexed • \${getCurrentFileStatus()}\`);
-                            break;
-                        case '${MESSAGE_TYPES.CURRENT_FILE}':
-                            updateStatus(\`\${getWorkspaceStatus()} • \${message.file ? 'Editing ' + message.file : 'No file selected'}\`);
-                            break;
-                        case '${MESSAGE_TYPES.LOAD_CHAT_HISTORY}':
-                            loadChatHistory(message.messages);
-                            break;
-                        case '${MESSAGE_TYPES.REQUEST_CHAT_HISTORY}':
-                            // This is handled by the extension, not the webview
-                            break;
-                    }
-                });
-                
-                function updateStatus(text) {
-                    const statusText = document.getElementById('statusText');
-                    if (statusText) {
-                        statusText.textContent = text;
-                    }
-                }
-                
-                function getWorkspaceStatus() {
-                    // This would be updated by the workspaceFiles message
-                    return 'Repository indexed';
-                }
-                
-                function getCurrentFileStatus() {
-                    // This would be updated by the currentFile message
-                    return 'No file selected';
-                }
-                
-                function loadChatHistory(messages) {
-                    console.log('[AI Chatbot] Webview: Loading chat history', messages.length, 'messages');
-                    const container = document.getElementById('messages');
-                    if (container && messages && messages.length > 0) {
-                        // Clear existing messages except the initial AI greeting
-                        const initialMessage = container.querySelector('.message');
-                        container.innerHTML = '';
-                        if (initialMessage) {
-                            container.appendChild(initialMessage);
-                        }
-                        
-                        // Load saved messages
-                        messages.forEach(msg => {
-                            console.log('[AI Chatbot] Webview: Loading message:', msg.type, msg.content.substring(0, 100) + '...');
-                            addMessageWithParsing(msg.type, msg.content);
-                        });
-                        console.log('[AI Chatbot] Webview: Chat history loaded successfully');
-                    } else {
-                        console.log('[AI Chatbot] Webview: No chat history to load');
-                    }
-                }
-                
-                function saveChatHistory() {
-                    const container = document.getElementById('messages');
-                    if (container) {
-                        const messages = [];
-                        const messageElements = container.querySelectorAll('.message');
-                        messageElements.forEach((element, index) => {
-                            // Skip the first message (initial AI greeting)
-                            if (index === 0) return;
-                            
-                            const avatar = element.querySelector('.message-avatar');
-                            if (avatar) {
-                                const type = avatar.textContent === '👤' ? 'user' : 'ai';
-                                
-                                if (type === 'user') {
-                                    // For user messages, get the simple text content
-                                    const content = element.querySelector('.message-text');
-                                    if (content) {
-                                        messages.push({
-                                            type: type,
-                                            content: content.textContent || content.innerHTML
-                                        });
-                                    }
-                                } else {
-                                    // For AI messages, use the stored raw content
-                                    const rawContent = element.getAttribute('data-raw-content');
-                                    if (rawContent) {
-                                        messages.push({
-                                            type: type,
-                                            content: rawContent
-                                        });
-                                    }
-                                }
-                            }
-                        });
-                        
-                        if (messages.length > 0) {
-                            console.log('[AI Chatbot] Webview: Saving chat history', messages.length, 'messages');
-                            vscode.postMessage({
-                                type: '${MESSAGE_TYPES.SAVE_CHAT_HISTORY}',
-                                messages: messages
-                            });
-                        }
-                    }
-                }
-                
-                function clearChat() {
-                    const container = document.getElementById('messages');
-                    if (container) {
-                        // Keep only the initial AI greeting
-                        const initialMessage = container.querySelector('.message');
-                        container.innerHTML = '';
-                        if (initialMessage) {
-                            container.appendChild(initialMessage);
-                        }
-                        saveChatHistory();
-                    }
-                }
-                
-                function exportChat() {
-                    const container = document.getElementById('messages');
-                    if (container) {
-                        const messages = [];
-                        const messageElements = container.querySelectorAll('.message');
-                        messageElements.forEach(element => {
-                            const avatar = element.querySelector('.message-avatar');
-                            const content = element.querySelector('.message-text, .line-content');
-                            if (avatar && content) {
-                                const type = avatar.textContent === '👤' ? 'User' : 'AI';
-                                messages.push(\`\${type}: \${content.textContent}\`);
-                            }
-                        });
-                        
-                        const chatText = messages.join('\\n\\n');
-                        const blob = new Blob([chatText], { type: 'text/plain' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'chat-history.txt';
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    }
-                }
-                
-                // Request workspace information
-                vscode.postMessage({ type: '${MESSAGE_TYPES.GET_WORKSPACE_FILES}' });
-                vscode.postMessage({ type: '${MESSAGE_TYPES.GET_CURRENT_FILE}' });
-                
-                // Request chat history on webview load
-                setTimeout(() => {
-                    vscode.postMessage({ type: '${MESSAGE_TYPES.REQUEST_CHAT_HISTORY}' });
-                }, ${CONFIG.WEBVIEW_REQUEST_DELAY_MS});
-            </script>
+            <script src="${scriptSrc}"></script>
         </body>
         </html>`;
     }
 }
 exports.ChatWebviewProvider = ChatWebviewProvider;
-ChatWebviewProvider.viewType = CONFIG.VIEW_TYPE;
+ChatWebviewProvider.viewType = config_1.CONFIG.VIEW_TYPE;
 //# sourceMappingURL=chatWebviewProvider.js.map
