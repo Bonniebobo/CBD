@@ -10,7 +10,7 @@ export const CONFIG = {
     SAVE_DELAY_MS: 100,
     WEBVIEW_REQUEST_DELAY_MS: 200,
     BACKEND_URL_SETTING: 'ai-chatbot.backendUrl',
-    DEFAULT_BACKEND_URL: 'http://localhost:3001',
+    DEFAULT_BACKEND_URL: 'https://4xwuxxqbqj.execute-api.us-east-1.amazonaws.com/',//'http://localhost:3001',
 } as const;
 
 export function getLocalResourceRoots(extensionUri: vscode.Uri): vscode.Uri[] {

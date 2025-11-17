@@ -3,7 +3,8 @@
   "displayName": "AI Chatbot Assistant",
   "description": "AI-powered coding assistant with repository awareness",
   "version": "0.1.0",
-  "publisher": "your-publisher",
+  "publisher": "cbd",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.82.0"
   },
@@ -82,7 +83,7 @@
         },
         "ai-chatbot.backendUrl": {
           "type": "string",
-          "default": "http://localhost:3001",
+          "default": "https://4xwuxxqbqj.execute-api.us-east-1.amazonaws.com/", 
           "description": "Backend API URL for AI processing"
         }
       }
