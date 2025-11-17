@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "lambda:package": "zip -rq lambda.zip index.js lambda.js services node_modules package.json package-lock.json .env.example",
     "test": "jest tests/unit --coverage",
     "test:watch": "jest tests/unit --watch",
     "test:integration": "jest tests/integration/api-integration.test.js --forceExit --detectOpenHandles",
@@ -26,8 +27,9 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2"
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "serverless-http": "^4.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
@@ -38,7 +40,7 @@
     "supertest": "^7.1.3"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18"
   },
   "repository": {
     "type": "git",

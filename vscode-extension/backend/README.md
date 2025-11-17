@@ -89,6 +89,80 @@ This script will:
 - **Health Check**: http://localhost:3001/health
 - **Upload Endpoint**: http://localhost:3001/upload
 
+## Current Cloud Deployment (team reference)
+- Invoke URL (API Gateway): https://4xwuxxqbqj.execute-api.us-east-1.amazonaws.com
+- Routes: `GET /health`, `POST /upload`
+- Lambda runtime: Node.js 22.x, handler `lambda.handler`, timeout 20s, memory 256MB
+- Env vars on Lambda: `GEMINI_API_KEY` (required), `NODE_ENV=production` (optional)
+- Packaging: `npm run lambda:package` (Node 22, prod deps only)
+- When swapping frontend/extension to cloud, set base URL to the Invoke URL above; keep `http://localhost:3001` for local dev.
+
+## Deploying to AWS Lambda + API Gateway
+
+Use Lambda for the backend so API Gateway can expose `/upload` and `/health` without running a server VM.
+
+### Prerequisites
+- AWS CLI configured with an IAM role that has `AWSLambdaBasicExecutionRole` and permission for API Gateway to invoke the function.
+- Node.js 18+ locally for packaging.
+- Set your `GEMINI_API_KEY` as a Lambda environment variable.
+
+### Package the function
+```bash
+# From the backend folder
+npm install       # ensures serverless-http is present
+npm run lambda:package  # produces lambda.zip with code + dependencies
+```
+
+### Create/Update the Lambda
+```bash
+# First-time create
+aws lambda create-function \
+  --function-name ai-code-assistant-backend \
+  --runtime nodejs18.x \
+  --role arn:aws:iam::<ACCOUNT_ID>:role/<LAMBDA_EXEC_ROLE> \
+  --handler lambda.handler \
+  --zip-file fileb://lambda.zip \
+  --environment Variables="{GEMINI_API_KEY=$GEMINI_API_KEY,NODE_ENV=production}"
+
+# Subsequent deploys
+aws lambda update-function-code \
+  --function-name ai-code-assistant-backend \
+  --zip-file fileb://lambda.zip
+```
+
+### Wire API Gateway (HTTP API)
+```bash
+# Create an HTTP API that proxies all routes to the Lambda
+API_ID=$(aws apigatewayv2 create-api \
+  --name ai-code-assistant-api \
+  --protocol-type HTTP \
+  --target arn:aws:lambda:$AWS_REGION:<ACCOUNT_ID>:function:ai-code-assistant-backend \
+  --query 'ApiId' --output text)
+
+# Allow API Gateway to invoke the Lambda
+aws lambda add-permission \
+  --function-name ai-code-assistant-backend \
+  --statement-id apigw-invoke \
+  --action lambda:InvokeFunction \
+  --principal apigateway.amazonaws.com \
+  --source-arn arn:aws:execute-api:$AWS_REGION:<ACCOUNT_ID>:$API_ID/*/*/*
+```
+
+API Gateway creates a default stage; the invoke URL will look like `https://$API_ID.execute-api.$AWS_REGION.amazonaws.com/`. The Express routes stay the same, so `/upload` and `/health` are available immediately.
+
+### Smoke test
+```bash
+API_URL="https://$API_ID.execute-api.$AWS_REGION.amazonaws.com"
+curl -X GET "$API_URL/health"
+curl -X POST "$API_URL/upload" \
+  -H "Content-Type: application/json" \
+  -d '{"files":[{"filename":"README.md","content":"hello"}],"prompt":"summarize"}'
+```
+
+### Tips
+- Keep the Lambda zipped size under the 50MB direct upload limit; prune devDependencies before packaging if needed.
+- When running the VS Code extension locally, keep using `http://localhost:3001`. For the deployed build, swap the base URL with the API Gateway invoke URL.
+
 ## API Endpoints
 
 ### POST /upload
