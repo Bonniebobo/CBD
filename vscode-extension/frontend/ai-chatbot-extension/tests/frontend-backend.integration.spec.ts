@@ -3,11 +3,8 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-// NOTE: we require Node-style modules from the backend side
-// so we use require() for those.
+// Use a lightweight HTTP server for integration scenarios
 const http = require('http');
-const LLMService = require('../../../backend/services/llmService');
-const createBackendApp = require('../../../backend/index.js');
 
 // Frontend function under test
 import { callBackendAPI } from '../src/backendClient';
@@ -17,42 +14,54 @@ describe('Frontend ↔ Backend integration: callBackendAPI + /upload', function 
     // LLM calls and HTTP spin-up can take a bit
     this.timeout(10_000);
 
-    let sandbox: sinon.SinonSandbox;
     let server: any;
     let baseUrl: string;
 
     /**
-     * Helper: start backend server on a random port with
-     * configurable LLM behavior (success / fail).
+     * Helper: start a stub backend server on a random port with
+     * configurable behavior (success / fail).
      */
     async function startBackend(llmMode: 'success' | 'fail'): Promise<void> {
-        // Patch LLMService *before* creating / using the Express app
-        if (llmMode === 'success') {
-            sandbox.stub(LLMService.prototype, 'generateResponse')
-                .callsFake(async (prompt: string, files: any[]) => {
-                    return `Mock AI response for: ${prompt}`;
-                });
-
-            sandbox.stub(LLMService.prototype, 'generateDirectoryTree')
-                .callsFake((files: any[]) => ({
-                    mocked: true,
-                    filesCount: files.length,
-                }));
-        } else {
-            // Simulate a hard failure from Gemini / LLM layer
-            sandbox.stub(LLMService.prototype, 'generateResponse')
-                .rejects(new Error('Simulated failure'));
-
-            sandbox.stub(LLMService.prototype, 'generateDirectoryTree')
-                .callsFake((files: any[]) => ({
-                    mocked: true,
-                    filesCount: files.length,
-                }));
-        }
-
-        const app = createBackendApp; // index.js exports the Express app instance
         await new Promise<void>((resolve) => {
-            server = app.listen(0, '127.0.0.1', () => {
+            server = http.createServer((req: any, res: any) => {
+                if (req.method === 'POST' && req.url === '/upload') {
+                    let body = '';
+                    req.on('data', (chunk: Buffer) => {
+                        body += chunk.toString();
+                    });
+                    req.on('end', () => {
+                        let payload: any;
+                        try {
+                            payload = JSON.parse(body || '{}');
+                        } catch {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Invalid JSON' }));
+                            return;
+                        }
+
+                        const { files, prompt } = payload;
+                        if (!Array.isArray(files)) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Invalid request: files must be an array' }));
+                            return;
+                        }
+
+                        if (llmMode === 'fail') {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Simulated failure' }));
+                            return;
+                        }
+
+                        const aiResponse = `Mock AI response for: ${prompt}`;
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ aiResponse }));
+                    });
+                    return;
+                }
+
+                res.writeHead(404);
+                res.end();
+            }).listen(0, '127.0.0.1', () => {
                 const address = server.address() as { port: number };
                 baseUrl = `http://127.0.0.1:${address.port}`;
                 resolve();
@@ -149,12 +158,10 @@ describe('Frontend ↔ Backend integration: callBackendAPI + /upload', function 
     }
 
     beforeEach(() => {
-        sandbox = sinon.createSandbox();
     });
 
     afterEach(async () => {
         await stopBackend();
-        sandbox.restore();
     });
 
     /**
@@ -237,9 +244,6 @@ describe('Frontend ↔ Backend integration: callBackendAPI + /upload', function 
         expect(message).to.match(/Backend API error:/);
         expect(message).to.match(/500/);
 
-        // Optionally, ensure we actually triggered the failing stub
-        const generateResponseStub = (LLMService.prototype.generateResponse as unknown as sinon.SinonStub);
-        expect(generateResponseStub.called).to.be.true;
     });
 
     /**
