@@ -250,6 +250,18 @@ node test-integration.js
    - **VS Code Console:** View → Output → "AI Chatbot"
    - **Backend Console:** Terminal running `npm start`
 
+## 🌐 Web/Cloud Usage (no local backend required)
+
+If you want to use the published extension against the hosted backend:
+1. Install the extension from the Marketplace: `cbd.ai-chatbot-extension`.
+2. Open VS Code Settings and set `ai-chatbot.backendUrl` to your deployed backend (e.g. `https://4xwuxxqbqj.execute-api.us-east-1.amazonaws.com`).
+3. Open the AI Chatbot view from the Activity Bar and start chatting. The extension will send workspace files to the cloud backend for analysis.
+
+If you prefer to point at a locally running backend:
+1. Clone this repo.
+2. `cd vscode-extension/backend && npm install && npm start` (defaults to `http://localhost:3001`).
+3. In VS Code settings, set `ai-chatbot.backendUrl` to `http://localhost:3001`.
+
 ## 🔍 Debugging
 
 ### VS Code Extension Logs
@@ -305,6 +317,47 @@ The extension supports these file types:
 - **Web:** `.html`, `.css`, `.scss`, `.vue`, `.svelte`, `.astro`
 - **Docs:** `.md`, `.txt`
 - **Other:** `.xml`, `.gitignore`, `.dockerfile`
+
+## ☁️ Deploying to AWS (for forks)
+
+### Prerequisites
+- AWS account with permissions for Lambda (and Amplify if you add a web frontend).
+- Node.js 18+.
+- GitHub secrets (for CI/CD):
+  - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (for AWS CLI).
+  - `VSCE_PAT` (to publish the VS Code extension via `vsce`).
+
+### Backend: package and deploy to Lambda
+1. `cd vscode-extension/backend && npm install`.
+2. Package (example manual flow):
+   ```bash
+   zip -rq lambda.zip index.js lambda.js services node_modules package.json package-lock.json .env.example
+   aws lambda update-function-code \
+     --function-name YOUR_FUNCTION_NAME \
+     --zip-file fileb://lambda.zip \
+     --region YOUR_REGION
+   ```
+3. In CI, use AWS credentials from GitHub secrets to run the same packaging + `aws lambda update-function-code`.
+
+### Frontend: publish VS Code extension
+1. `cd vscode-extension/frontend/ai-chatbot-extension && npm install && npm run compile`.
+2. Package locally:
+   ```bash
+   npx vsce package --out ./dist/ai-chatbot-extension.vsix
+   ```
+3. Publish (manual):
+   ```bash
+   VSCE_PAT=your_pat npx vsce publish --pat "$VSCE_PAT"
+   ```
+4. In CI, use `VSCE_PAT` from secrets to run the publish step (see `.github/workflows/deploy-extension.yml`).
+
+### GitHub Actions in this repo
+- `.github/workflows/run-integration-tests.yml`: runs stubbed + cloud integration tests on each push/PR.
+- `.github/workflows/deploy-extension.yml`: packages and publishes the extension on pushes to `main` (uses `VSCE_PAT`).
+- If you add Lambda auto-deploy, create a `deploy-aws-lambda.yml` that installs backend deps, zips the backend, and calls `aws lambda update-function-code` using the AWS secrets.
+
+### Pointing the extension to your deployed backend
+After deployment, set `ai-chatbot.backendUrl` (VS Code settings or `settings.json`) to your API Gateway/Lambda invoke URL so the extension talks to your cloud backend.
 
 ## 🚀 Deployment
 
