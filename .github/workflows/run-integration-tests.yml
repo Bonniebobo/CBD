@@ -47,4 +47,6 @@ jobs:
           TS_NODE_COMPILER_OPTIONS: '{"module":"commonjs","esModuleInterop":true,"skipLibCheck":true,"resolveJsonModule":true}'
           TS_NODE_FILES: true
           BACKEND_URL: https://4xwuxxqbqj.execute-api.us-east-1.amazonaws.com
-        run: npx mocha tests/cloud-remote.integration.spec.ts --config .mocharc.json
+        run: |
+          ls -la tests
+          npx mocha ./tests/cloud-remote.integration.spec.ts --config .mocharc.json
