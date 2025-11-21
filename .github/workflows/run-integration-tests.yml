@@ -1,0 +1,50 @@
+name: Run Integration Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: |
+            vscode-extension/backend/package-lock.json
+            vscode-extension/frontend/ai-chatbot-extension/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: vscode-extension/backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: vscode-extension/frontend/ai-chatbot-extension
+        run: npm ci
+
+      - name: Run local integration tests (stubbed)
+        working-directory: vscode-extension/frontend/ai-chatbot-extension
+        env:
+          NODE_ENV: test
+          TS_NODE_TRANSPILE_ONLY: true
+          TS_NODE_COMPILER_OPTIONS: '{"module":"commonjs","esModuleInterop":true,"skipLibCheck":true,"resolveJsonModule":true}'
+          TS_NODE_FILES: true
+        run: npx mocha tests/frontend-backend.integration.spec.ts --config .mocharc.json
+
+      - name: Run cloud integration tests (deployed backend)
+        working-directory: vscode-extension/frontend/ai-chatbot-extension
+        env:
+          NODE_ENV: test
+          TS_NODE_TRANSPILE_ONLY: true
+          TS_NODE_COMPILER_OPTIONS: '{"module":"commonjs","esModuleInterop":true,"skipLibCheck":true,"resolveJsonModule":true}'
+          TS_NODE_FILES: true
+          BACKEND_URL: https://4xwuxxqbqj.execute-api.us-east-1.amazonaws.com
+        run: npx mocha tests/cloud-remote.integration.spec.ts --config .mocharc.json
