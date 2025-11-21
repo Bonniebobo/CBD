@@ -96,7 +96,8 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "lint:fix": "eslint src --ext ts --fix",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:integration:cloud": "BACKEND_URL=https://4xwuxxqbqj.execute-api.us-east-1.amazonaws.com npx mocha tests/cloud-remote.integration.spec.ts --config .mocharc.json"
   },
   "devDependencies": {
     "@types/node": "16.x",
